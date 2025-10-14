@@ -1,0 +1,183 @@
+Khaos - Tauri Desktop Application
+==================================
+
+📦 Khaos/
+│
+├── 📄 START_HERE.md ⭐ (Read this first!)
+│
+├── 📚 Documentation Files
+│   ├── README.md                  - Main project documentation
+│   ├── QUICKSTART.md             - 3-step quick start guide
+│   ├── DEVELOPMENT.md            - Development best practices
+│   ├── DEPLOYMENT.md             - Build & deployment guide
+│   ├── PROJECT_SUMMARY.md        - Complete overview
+│   ├── SETUP_VERIFICATION.md     - Setup verification checklist
+│   ├── CONTRIBUTING.md           - Contribution guidelines
+│   ├── CHANGELOG.md              - Version history
+│   ├── PROJECT_TREE.txt          - This file
+│   └── LICENSE                   - MIT License
+│
+├── ⚙️ Configuration Files
+│   ├── package.json              - Node dependencies & scripts
+│   ├── vite.config.ts            - Vite bundler config
+│   ├── svelte.config.js          - Svelte preprocessor
+│   ├── tailwind.config.js        - Tailwind + DaisyUI themes
+│   ├── postcss.config.js         - PostCSS configuration
+│   ├── tsconfig.json             - TypeScript config
+│   ├── tsconfig.node.json        - TypeScript for Node
+│   ├── .gitignore                - Git ignore patterns
+│   └── .gitattributes            - Git line ending rules
+│
+├── 🎨 Frontend Source (src/)
+│   ├── index.html                - HTML entry point
+│   ├── main.ts                   - TypeScript entry
+│   ├── app.css                   - Global styles + custom themes
+│   ├── App.svelte                - Main application component
+│   ├── vite-env.d.ts             - Vite type definitions
+│   │
+│   └── lib/                      - Library code
+│       ├── components/           - Reusable Svelte components
+│       │   ├── ThemeSwitcher.svelte  - Dark/Light theme toggle
+│       │   └── Card.svelte           - Reusable card component
+│       │
+│       ├── stores/               - Svelte stores (state management)
+│       │   └── theme.ts              - Theme store with persistence
+│       │
+│       └── utils/                - Utility functions
+│           └── tauri.ts              - Tauri command wrappers
+│
+├── 🦀 Backend Source (src-tauri/)
+│   ├── Cargo.toml                - Rust dependencies
+│   ├── tauri.conf.json           - Tauri configuration
+│   ├── build.rs                  - Rust build script
+│   │
+│   └── src/                      - Rust source code
+│       ├── main.rs                   - Rust entry point
+│       └── commands.rs               - Tauri command handlers
+│
+└── 🔧 IDE Configuration (.vscode/)
+    ├── settings.json             - VSCode settings
+    └── extensions.json           - Recommended extensions
+
+Generated Directories (after build):
+====================================
+
+├── 📁 node_modules/              - Node dependencies (after bun install)
+├── 📁 dist/                      - Frontend build output
+└── 📁 src-tauri/target/          - Rust build output
+    ├── debug/                    - Debug builds
+    └── release/                  - Production builds
+        └── bundle/               - Platform installers (.msi, .dmg, .deb, etc.)
+
+Key Files by Purpose:
+====================
+
+🚀 Getting Started:
+  - START_HERE.md              (Start here! Quick overview)
+  - QUICKSTART.md              (3-step setup)
+  - SETUP_VERIFICATION.md      (Verify everything works)
+
+📖 Learning:
+  - README.md                  (Project overview)
+  - PROJECT_SUMMARY.md         (What's included)
+  - DEVELOPMENT.md             (How to develop)
+
+🏗️ Building:
+  - package.json               (Scripts: dev, build, tauri:dev, tauri:build)
+  - DEPLOYMENT.md              (How to build & deploy)
+
+🎨 Styling:
+  - src/app.css                (Theme definitions)
+  - tailwind.config.js         (Tailwind + DaisyUI config)
+
+🔧 Backend:
+  - src-tauri/src/commands.rs  (Add Tauri commands here)
+  - src-tauri/src/main.rs      (Register commands here)
+
+💻 Frontend:
+  - src/App.svelte             (Main UI)
+  - src/lib/components/        (Add components here)
+  - src/lib/stores/            (Add stores here)
+
+Commands Quick Reference:
+========================
+
+Development:
+  bun install                  # Install dependencies
+  bun run dev                  # Frontend only
+  bun run tauri:dev            # Full app with hot-reload
+
+Building:
+  bun run build                # Build frontend
+  bun run tauri:build          # Build desktop app
+
+Utilities:
+  bun run check                # TypeScript checking
+  bun run preview              # Preview production build
+
+File Count Summary:
+==================
+
+📄 Documentation:       11 files
+⚙️ Configuration:       10 files
+🎨 Frontend (src):       7 files
+🦀 Backend (src-tauri):  4 files
+🔧 VSCode:               2 files
+─────────────────────────────────
+   Total:               34 files
+
+Technologies Used:
+==================
+
+Frontend:
+  - Svelte 4.2.8           (Reactive framework)
+  - TypeScript 5.3.3       (Type safety)
+  - Vite 5.0.11            (Build tool)
+  - Tailwind CSS 3.4.1     (Utility CSS)
+  - DaisyUI 4.6.0          (Component library)
+
+Backend:
+  - Rust (latest stable)   (Systems language)
+  - Tauri 1.5              (Desktop framework)
+  - serde                  (Serialization)
+
+Build Tools:
+  - Bun or npm             (Package manager)
+  - Cargo                  (Rust package manager)
+
+Themes Included:
+===============
+
+🌙 Dark Mode (Default): softextreme
+  - Deep dark backgrounds
+  - High contrast
+  - Easy on the eyes at night
+
+☀️ Light Mode: lemonade
+  - Bright, fresh colors
+  - Professional look
+  - Great for daytime use
+
+Features Out of the Box:
+========================
+
+✅ Theme Switching         - Dark/Light with persistence
+✅ Tauri Backend          - Example command ready
+✅ Type Safety            - Full TypeScript support
+✅ Component Library      - DaisyUI pre-styled components
+✅ Responsive Design      - Works on all screen sizes
+✅ Hot Reload             - Instant feedback during dev
+✅ Production Build       - Optimized bundles
+✅ Cross-Platform         - Windows, macOS, Linux
+✅ Security               - Tauri allowlist configured
+✅ Documentation          - Comprehensive guides
+
+Next Steps:
+===========
+
+1. Read START_HERE.md
+2. Run: bun install && bun run tauri:dev
+3. Start building your features!
+
+Happy Coding! 🚀
+

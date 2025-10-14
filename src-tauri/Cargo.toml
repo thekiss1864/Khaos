@@ -1,0 +1,42 @@
+[package]
+name = "khaos-tauri-app"
+version = "0.1.0"
+description = "A Tauri App built with Rust, Svelte, and TypeScript"
+authors = ["you"]
+license = ""
+repository = ""
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+# Add winreg dependency
+winreg = "0.50.0"
+winapi = { version = "0.3", features = ["shellapi", "winuser"] }
+tauri = { version = "1.5", features = [ "window-show", "window-unmaximize", "window-hide", "protocol-asset", "fs-copy-file", "app-show", "app-hide", "fs-remove-dir", "window-close", "process-relaunch", "window-minimize", "window-start-dragging", "window-maximize", "fs-rename-file", "path-all", "fs-remove-file", "shell-open", "fs-read-file", "fs-write-file", "fs-read-dir", "fs-create-dir", "dialog-open", "dialog-save"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
+tokio = { version = "1", features = ["full"] }
+base64 = "0.21"
+
+# XML parsing for demonstration
+quick-xml = { version = "0.31", features = ["serde"] }
+
+# UUID generation
+uuid = { version = "1.0", features = ["v4"] }
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Lazy static for global state
+lazy_static = "1.4"
+
+[features]
+# This feature is used for production builds or when `devPath` points to the filesystem
+# DO NOT REMOVE!!
+custom-protocol = ["tauri/custom-protocol"]
+

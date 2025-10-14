@@ -1,0 +1,105 @@
+{
+  "$schema": "../../node_modules/@tauri-apps/cli/schema.json",
+  "build": {
+    "beforeDevCommand": "",
+    "beforeBuildCommand": "",
+    "devPath": "../dist",
+    "distDir": "../dist",
+    "withGlobalTauri": false
+  },
+  "package": {
+    "productName": "Khaos",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": true
+      },
+      "dialog": {
+        "all": false,
+        "open": true,
+        "save": true
+      },
+      "protocol": {
+        "asset": true
+      },
+      "window": {
+        "all": false,
+        "close": true,
+        "hide": true,
+        "show": true,
+        "maximize": true,
+        "minimize": true,
+        "unmaximize": true,
+        "startDragging": true
+      },
+      "app": {
+        "show": true,
+        "hide": true
+      },
+      "fs": {
+        "all": false,
+        "readFile": true,
+        "writeFile": true,
+        "readDir": true,
+        "copyFile": true,
+        "createDir": true,
+        "removeDir": true,
+        "removeFile": true,
+        "renameFile": true
+      },
+      "path": {
+        "all": true
+      },
+      "process": {
+        "relaunch": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "icon": [
+        "icons/16x16.png",
+        "icons/20x20.png",
+        "icons/24x24.png",
+        "icons/32x32.png",
+        "icons/40x40.png",
+        "icons/48x48.png",
+        "icons/64x64.png",
+        "icons/96x96.png",
+        "icons/128x128.png",
+        "icons/144x144.png",
+        "icons/152x152.png",
+        "icons/192x192.png",
+        "icons/256x256.png",
+        "icons/384x384.png",
+        "icons/512x512.png",
+        "icons/256x256@2x.png",
+        "icons/384x384@2x.png",
+        "icons/512x512@2x.png",
+        "icons/icon.ico",
+        "icons/icon.icns",
+        "icons/icon.svg"
+      ],
+      "identifier": "com.khaos.dev",
+      "targets": "all"
+    },
+    "security": {
+      "csp": null
+    },
+    "updater": {
+      "active": false
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "resizable": true,
+        "title": "Khaos",
+        "width": 1200,
+        "height": 800
+      }
+    ]
+  }
+}
