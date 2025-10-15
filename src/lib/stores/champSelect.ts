@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store';
+import { writable } from "svelte/store";
 
 // Champion Select Automation Store
 interface ChampSelectSettings {
@@ -54,7 +54,7 @@ const defaultSettings: ChampSelectSettings = {
 
   // Instant message
   instantMessageEnabled: false,
-  instantMessageText: '',
+  instantMessageText: "",
   instantMessageTimes: 1,
   instantMessageDelay: 0,
   instantMessageDelayBetween: 0,
@@ -62,32 +62,50 @@ const defaultSettings: ChampSelectSettings = {
   // Other features
   instantMuteEnabled: false,
   blueSideNotification: false,
-  currentSide: '',
+  currentSide: "",
 
   // Role selection
-  primaryRole: 'UNSELECTED',
-  secondaryRole: 'UNSELECTED',
+  primaryRole: "UNSELECTED",
+  secondaryRole: "UNSELECTED",
 
   // Multi-search
-  multiSearchWebsite: 'opgg',
+  multiSearchWebsite: "opgg",
 };
 
 // Create the store
 function createChampSelectStore() {
   // Get stored settings from localStorage if available
   let initialSettings = defaultSettings;
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('champSelectSettings');
-    if (stored) {
+  const loadSettings = () => {
+    if (typeof window !== "undefined") {
       try {
-        initialSettings = { ...defaultSettings, ...JSON.parse(stored) };
+        const stored = localStorage.getItem("champSelectSettings");
+        if (stored) {
+          initialSettings = { ...defaultSettings, ...JSON.parse(stored) };
+          console.log(
+            "ChampSelectStore: Loaded settings from localStorage",
+            initialSettings
+          );
+        } else {
+          console.log(
+            "ChampSelectStore: No stored settings found, using defaults"
+          );
+        }
       } catch (e) {
-        console.warn('Failed to parse stored champ select settings:', e);
+        console.warn(
+          "ChampSelectStore: Failed to load/parse stored settings:",
+          e
+        );
+        console.log("ChampSelectStore: Using defaults due to error");
       }
     }
-  }
+  };
 
-  const { subscribe, set, update } = writable<ChampSelectSettings>(initialSettings);
+  // Load settings immediately
+  loadSettings();
+
+  const { subscribe, set, update } =
+    writable<ChampSelectSettings>(initialSettings);
 
   return {
     subscribe,
@@ -102,10 +120,23 @@ function createChampSelectStore() {
       key: K,
       value: ChampSelectSettings[K]
     ) => {
-      update(settings => {
+      console.log("ChampSelectStore: updateSetting called", key, value);
+      update((settings) => {
         const newSettings = { ...settings, [key]: value };
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('champSelectSettings', JSON.stringify(newSettings));
+        console.log("ChampSelectStore: new settings", newSettings);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(
+              "champSelectSettings",
+              JSON.stringify(newSettings)
+            );
+            console.log("ChampSelectStore: Settings saved to localStorage");
+          } catch (e) {
+            console.error(
+              "ChampSelectStore: Failed to save to localStorage:",
+              e
+            );
+          }
         }
         return newSettings;
       });
@@ -113,10 +144,13 @@ function createChampSelectStore() {
 
     // Bulk update multiple settings
     updateSettings: (newSettings: Partial<ChampSelectSettings>) => {
-      update(settings => {
+      update((settings) => {
         const updatedSettings = { ...settings, ...newSettings };
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('champSelectSettings', JSON.stringify(updatedSettings));
+        if (typeof window !== "undefined") {
+          localStorage.setItem(
+            "champSelectSettings",
+            JSON.stringify(updatedSettings)
+          );
         }
         return updatedSettings;
       });
@@ -124,8 +158,8 @@ function createChampSelectStore() {
 
     // Clear all stored settings
     clearStoredSettings: () => {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('champSelectSettings');
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("champSelectSettings");
       }
     },
   };

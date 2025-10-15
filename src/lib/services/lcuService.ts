@@ -215,11 +215,15 @@ class LcuService {
    */
   async setInvisibleProfileBorder(): Promise<LcuResponse> {
     try {
-      return await this.customRequest("PUT", "/lol-regalia/v2/current-summoner/regalia", {
-        preferredCrestType: "prestige",
-        preferredBannerType: "blank",
-        selectedPrestigeCrest: 22
-      });
+      return await this.customRequest(
+        "PUT",
+        "/lol-regalia/v2/current-summoner/regalia",
+        {
+          preferredCrestType: "prestige",
+          preferredBannerType: "blank",
+          selectedPrestigeCrest: 22,
+        }
+      );
     } catch (error) {
       return {
         success: false,
@@ -234,9 +238,13 @@ class LcuService {
    */
   async setInvisibleProfileBanner(): Promise<LcuResponse> {
     try {
-      return await this.customRequest("POST", "/lol-challenges/v1/update-player-preferences/", {
-        bannerAccent: "2"
-      });
+      return await this.customRequest(
+        "POST",
+        "/lol-challenges/v1/update-player-preferences/",
+        {
+          bannerAccent: "2",
+        }
+      );
     } catch (error) {
       return {
         success: false,
@@ -250,9 +258,13 @@ class LcuService {
    */
   async removeAllTokens(): Promise<LcuResponse> {
     try {
-      return await this.customRequest("POST", "/lol-challenges/v1/update-player-preferences/", {
-        challengeIds: [-2, -2, -2]
-      });
+      return await this.customRequest(
+        "POST",
+        "/lol-challenges/v1/update-player-preferences/",
+        {
+          challengeIds: [-2, -2, -2],
+        }
+      );
     } catch (error) {
       return {
         success: false,
@@ -260,13 +272,16 @@ class LcuService {
       };
     }
   }
-  
+
   /**
    * Get player challenge preferences
    */
   async getPlayerChallengePreferences(): Promise<LcuResponse> {
     try {
-      return await this.customRequest("GET", "/lol-challenges/v1/summary-player-data/local-player");
+      return await this.customRequest(
+        "GET",
+        "/lol-challenges/v1/summary-player-data/local-player"
+      );
     } catch (error) {
       return {
         success: false,
@@ -286,31 +301,38 @@ class LcuService {
       if (!prefsResponse.success || !prefsResponse.data) {
         return prefsResponse;
       }
-      
+
       const data = prefsResponse.data;
       const preferences: any = {
-        challengeIds: []
+        challengeIds: [],
       };
-      
+
       // Handle title if it exists and is a valid string
-      if (data.title && data.title.itemId && 
-          typeof data.title.itemId === 'string' && 
-          data.title.itemId !== "-1") {
+      if (
+        data.title &&
+        data.title.itemId &&
+        typeof data.title.itemId === "string" &&
+        data.title.itemId !== "-1"
+      ) {
         preferences.title = data.title.itemId;
       }
-      
+
       // Handle banner if it exists
-      if (data.bannerId && typeof data.bannerId === 'string') {
+      if (data.bannerId && typeof data.bannerId === "string") {
         preferences.bannerAccent = data.bannerId;
       }
-      
+
       // Set challenge badges based on type
       if (badgeType !== -1) {
         for (let i = 0; i < 3; i++) {
-          if (badgeType === -2 && data.topChallenges && data.topChallenges.length > 0) {
+          if (
+            badgeType === -2 &&
+            data.topChallenges &&
+            data.topChallenges.length > 0
+          ) {
             // Copy first badge to all positions
             const firstBadgeId = data.topChallenges[0].id;
-            if (typeof firstBadgeId === 'string') {
+            if (typeof firstBadgeId === "string") {
               preferences.challengeIds.push(firstBadgeId);
             }
           } else if (badgeType >= 0 && badgeType <= 5) {
@@ -319,28 +341,32 @@ class LcuService {
           }
         }
       }
-      
+
       // Ensure challengeIds is an array of strings
       preferences.challengeIds = preferences.challengeIds.map(String);
-      
+
       // If no challengeIds, set to empty array
       if (preferences.challengeIds.length === 0) {
         preferences.challengeIds = [];
       }
-      
+
       // Remove any undefined or null values
       preferences.challengeIds = preferences.challengeIds.filter(Boolean);
-      
-      return await this.customRequest("POST", "/lol-challenges/v1/update-player-preferences/", preferences);
+
+      return await this.customRequest(
+        "POST",
+        "/lol-challenges/v1/update-player-preferences/",
+        preferences
+      );
     } catch (error) {
-      console.error('Challenge Badges Error:', error);
+      console.error("Challenge Badges Error:", error);
       return {
         success: false,
         message: String(error),
       };
     }
   }
-  
+
   /**
    * Set challenge points text
    */
@@ -348,8 +374,8 @@ class LcuService {
     try {
       return await this.customRequest("PUT", "/lol-chat/v1/me", {
         lol: {
-          challengePoints: points
-        }
+          challengePoints: points,
+        },
       });
     } catch (error) {
       return {
@@ -358,7 +384,7 @@ class LcuService {
       };
     }
   }
-  
+
   /**
    * Set challenge crystal level (rank)
    * @param tier The rank tier (IRON, BRONZE, SILVER, GOLD, PLATINUM, EMERALD, DIAMOND, MASTER, GRANDMASTER, CHALLENGER)
@@ -367,8 +393,8 @@ class LcuService {
     try {
       return await this.customRequest("PUT", "/lol-chat/v1/me", {
         lol: {
-          challengeCrystalLevel: tier
-        }
+          challengeCrystalLevel: tier,
+        },
       });
     } catch (error) {
       return {
@@ -377,7 +403,7 @@ class LcuService {
       };
     }
   }
-  
+
   /**
    * Set mastery level
    * @param level The mastery level to display
@@ -386,8 +412,8 @@ class LcuService {
     try {
       return await this.customRequest("PUT", "/lol-chat/v1/me", {
         lol: {
-          masteryScore: level.toString()
-        }
+          masteryScore: level.toString(),
+        },
       });
     } catch (error) {
       return {
@@ -401,10 +427,12 @@ class LcuService {
    * Set availability status
    * @param status The availability status to set
    */
-  async setAvailabilityStatus(status: 'online' | 'away' | 'offline' | 'mobile'): Promise<LcuResponse> {
+  async setAvailabilityStatus(
+    status: "online" | "away" | "offline" | "mobile"
+  ): Promise<LcuResponse> {
     try {
       return await this.customRequest("PUT", "/lol-chat/v1/me", {
-        availability: status
+        availability: status,
       });
     } catch (error) {
       return {
@@ -418,14 +446,14 @@ class LcuService {
    * Appear offline (hide online status)
    */
   async appearOffline(): Promise<LcuResponse> {
-    return this.setAvailabilityStatus('offline');
+    return this.setAvailabilityStatus("offline");
   }
 
   /**
    * Appear online
    */
   async appearOnline(): Promise<LcuResponse> {
-    return this.setAvailabilityStatus('online');
+    return this.setAvailabilityStatus("online");
   }
 
   /**
@@ -434,7 +462,7 @@ class LcuService {
   async disconnectChat(): Promise<LcuResponse> {
     try {
       return await this.customRequest("POST", "/chat/v1/suspend", {
-        config: "disable"
+        config: "disable",
       });
     } catch (error) {
       return {
@@ -457,7 +485,7 @@ class LcuService {
       };
     }
   }
-  
+
   /**
    * Launch a new League of Legends client instance
    * This allows running multiple clients simultaneously
@@ -507,7 +535,10 @@ class LcuService {
    */
   async deleteFriend(puuid: string): Promise<LcuResponse> {
     try {
-      return await this.customRequest("DELETE", `/lol-chat/v1/friends/${puuid}`);
+      return await this.customRequest(
+        "DELETE",
+        `/lol-chat/v1/friends/${puuid}`
+      );
     } catch (error) {
       return {
         success: false,
@@ -540,14 +571,14 @@ class LcuService {
 
         // Add delay to avoid rate limiting
         if (delayMs > 0) {
-          await new Promise(resolve => setTimeout(resolve, delayMs));
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
         }
       }
 
       return {
         success: true,
         message: `Successfully deleted ${successCount} friends. Failed: ${failCount}`,
-        data: { successCount, failCount }
+        data: { successCount, failCount },
       };
     } catch (error) {
       return {
@@ -575,10 +606,10 @@ class LcuService {
 
       for (const request of requests) {
         const result = await this.customRequest(
-          "PUT", 
+          "PUT",
           `/lol-chat/v1/friend-requests/${request.id}/accept`
         );
-        
+
         if (result.success) {
           successCount++;
         } else {
@@ -587,14 +618,14 @@ class LcuService {
 
         // Add delay to avoid rate limiting
         if (delayMs > 0) {
-          await new Promise(resolve => setTimeout(resolve, delayMs));
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
         }
       }
 
       return {
         success: true,
         message: `Successfully accepted ${successCount} friend requests. Failed: ${failCount}`,
-        data: { successCount, failCount }
+        data: { successCount, failCount },
       };
     } catch (error) {
       return {
@@ -622,10 +653,10 @@ class LcuService {
 
       for (const request of requests) {
         const result = await this.customRequest(
-          "DELETE", 
+          "DELETE",
           `/lol-chat/v1/friend-requests/${request.id}`
         );
-        
+
         if (result.success) {
           successCount++;
         } else {
@@ -634,14 +665,14 @@ class LcuService {
 
         // Add delay to avoid rate limiting
         if (delayMs > 0) {
-          await new Promise(resolve => setTimeout(resolve, delayMs));
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
         }
       }
 
       return {
         success: true,
         message: `Successfully rejected ${successCount} friend requests. Failed: ${failCount}`,
-        data: { successCount, failCount }
+        data: { successCount, failCount },
       };
     } catch (error) {
       return {
@@ -669,14 +700,16 @@ class LcuService {
         // Skip offline friends
         if (friend.availability !== "offline") {
           const result = await this.customRequest(
-            "POST", 
-            "/lol-lobby/v2/lobby/invitations", 
-            [{
-              toSummonerId: friend.summonerId,
-              toSummonerName: friend.name || friend.gameName
-            }]
+            "POST",
+            "/lol-lobby/v2/lobby/invitations",
+            [
+              {
+                toSummonerId: friend.summonerId,
+                toSummonerName: friend.name || friend.gameName,
+              },
+            ]
           );
-          
+
           if (result.success) {
             successCount++;
           } else {
@@ -685,7 +718,7 @@ class LcuService {
 
           // Add delay to avoid rate limiting
           if (delayMs > 0) {
-            await new Promise(resolve => setTimeout(resolve, delayMs));
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
           }
         }
       }
@@ -693,7 +726,7 @@ class LcuService {
       return {
         success: true,
         message: `Successfully invited ${successCount} friends to lobby. Failed: ${failCount}`,
-        data: { successCount, failCount }
+        data: { successCount, failCount },
       };
     } catch (error) {
       return {
@@ -721,13 +754,13 @@ class LcuService {
         puuid: friend.puuid,
         summonerId: friend.summonerId,
         groupId: friend.groupId,
-        groupName: friend.groupName
+        groupName: friend.groupName,
       }));
 
       return {
         success: true,
         message: `Successfully exported ${simplifiedFriends.length} friends`,
-        data: simplifiedFriends
+        data: simplifiedFriends,
       };
     } catch (error) {
       return {
@@ -744,7 +777,7 @@ class LcuService {
     try {
       return await this.customRequest("POST", "/lol-chat/v1/friend-requests", {
         name,
-        direction: "out"
+        direction: "out",
       });
     } catch (error) {
       return {
@@ -755,36 +788,84 @@ class LcuService {
   }
 
   /**
-   * Import friends from a list
+   * Import friends from a list using the same method as Amumus Friends
+   * Checks current summoner data to ensure names are up-to-date
    */
-  async importFriends(friendsList: any[], delayMs: number = 300): Promise<LcuResponse> {
+  async importFriends(
+    friendsList: any[],
+    delayMs: number = 300
+  ): Promise<LcuResponse> {
     try {
       let successCount = 0;
       let failCount = 0;
 
       for (const friend of friendsList) {
-        const name = friend.name || friend.gameName;
-        if (name) {
-          const result = await this.sendFriendRequest(name);
-          if (result.success) {
-            successCount++;
+        try {
+          // Use PUUID to get current summoner data (same as Amumus Friends)
+          if (friend.puuid) {
+            const summonerResponse = await this.customRequest(
+              "GET",
+              `/lol-summoner/v1/summoners-by-puuid-cached/${friend.puuid}`
+            );
+            if (summonerResponse.success && summonerResponse.data) {
+              const currentName =
+                summonerResponse.data.internalName ||
+                summonerResponse.data.name;
+
+              // Send friend request with current name
+              const result = await this.sendFriendRequest(currentName);
+              if (result.success) {
+                successCount++;
+              } else {
+                failCount++;
+              }
+            } else {
+              // Fallback to stored name if PUUID lookup fails
+              const name = friend.name || friend.gameName;
+              if (name) {
+                const result = await this.sendFriendRequest(name);
+                if (result.success) {
+                  successCount++;
+                } else {
+                  failCount++;
+                }
+              } else {
+                failCount++;
+              }
+            }
           } else {
-            failCount++;
+            // Fallback for old export format without PUUID
+            const name = friend.name || friend.gameName;
+            if (name) {
+              const result = await this.sendFriendRequest(name);
+              if (result.success) {
+                successCount++;
+              } else {
+                failCount++;
+              }
+            } else {
+              failCount++;
+            }
           }
 
           // Add delay to avoid rate limiting
           if (delayMs > 0) {
-            await new Promise(resolve => setTimeout(resolve, delayMs));
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
           }
-        } else {
+        } catch (error) {
+          // If individual friend import fails, continue with others
           failCount++;
+          console.error(
+            `Failed to import friend ${friend.name || friend.gameName}:`,
+            error
+          );
         }
       }
 
       return {
         success: true,
         message: `Successfully sent ${successCount} friend requests. Failed: ${failCount}`,
-        data: { successCount, failCount }
+        data: { successCount, failCount },
       };
     } catch (error) {
       return {
@@ -843,7 +924,10 @@ class LcuService {
    */
   async getAllChampions(): Promise<LcuResponse> {
     try {
-      return await this.customRequest("GET", "/lol-champions/v1/owned-champions-minimal");
+      return await this.customRequest(
+        "GET",
+        "/lol-champions/v1/owned-champions-minimal"
+      );
     } catch (error) {
       return {
         success: false,
@@ -858,7 +942,10 @@ class LcuService {
    */
   async getChampionMastery(championId: number): Promise<LcuResponse> {
     try {
-      return await this.customRequest("GET", `/lol-champions/v1/champions/${championId}/mastery`);
+      return await this.customRequest(
+        "GET",
+        `/lol-champions/v1/champions/${championId}/mastery`
+      );
     } catch (error) {
       return {
         success: false,
@@ -872,7 +959,10 @@ class LcuService {
    */
   async getAllChampionMasteries(): Promise<LcuResponse> {
     try {
-      return await this.customRequest("GET", "/lol-champions/v1/champions-mastery");
+      return await this.customRequest(
+        "GET",
+        "/lol-champions/v1/champions-mastery"
+      );
     } catch (error) {
       return {
         success: false,
@@ -886,7 +976,10 @@ class LcuService {
    */
   async getOwnedSkins(): Promise<LcuResponse> {
     try {
-      return await this.customRequest("GET", "/lol-inventory/v2/inventory/skins");
+      return await this.customRequest(
+        "GET",
+        "/lol-inventory/v2/inventory/skins"
+      );
     } catch (error) {
       return {
         success: false,
@@ -900,7 +993,10 @@ class LcuService {
    */
   async getCurrentQueueType(): Promise<LcuResponse> {
     try {
-      return await this.customRequest("GET", "/lol-gameflow/v1/gameflow-metadata/player-status");
+      return await this.customRequest(
+        "GET",
+        "/lol-gameflow/v1/gameflow-metadata/player-status"
+      );
     } catch (error) {
       return {
         success: false,
@@ -921,12 +1017,16 @@ class LcuService {
       }
 
       const availableQueues = response.data;
-      const queueAvailable = availableQueues.some((queue: any) => queue.id === queueType);
+      const queueAvailable = availableQueues.some(
+        (queue: any) => queue.id === queueType
+      );
 
       return {
         success: true,
-        message: queueAvailable ? "Queue is available" : "Queue is not available",
-        data: queueAvailable
+        message: queueAvailable
+          ? "Queue is available"
+          : "Queue is not available",
+        data: queueAvailable,
       };
     } catch (error) {
       return {
@@ -944,7 +1044,7 @@ class LcuService {
   async autoBan(championId: number, delay: number = 0): Promise<LcuResponse> {
     try {
       if (delay > 0) {
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
 
       return await invoke<LcuResponse>("auto_ban_champion", { championId });
@@ -962,9 +1062,17 @@ class LcuService {
    * @param times Number of times to send the message
    * @param delay Delay between messages in milliseconds
    */
-  async sendInstantMessage(message: string, times: number = 1, delay: number = 0): Promise<LcuResponse> {
+  async sendInstantMessage(
+    message: string,
+    times: number = 1,
+    delay: number = 0
+  ): Promise<LcuResponse> {
     try {
-      return await invoke<LcuResponse>("send_instant_message", { message, times, delay });
+      return await invoke<LcuResponse>("send_instant_message", {
+        message,
+        times,
+        delay,
+      });
     } catch (error) {
       return {
         success: false,
@@ -996,11 +1104,11 @@ class LcuService {
       const response = await invoke<LcuResponse>("multi_search", { website });
       if (response.success && response.data?.url) {
         // Open the URL in the default browser
-        window.open(response.data.url, '_blank');
+        window.open(response.data.url, "_blank");
         return {
           success: true,
           message: `Opened ${website.toUpperCase()} multi-search`,
-          data: response.data
+          data: response.data,
         };
       }
       return response;
@@ -1032,8 +1140,8 @@ class LcuService {
   async dodgeLobby(): Promise<LcuResponse> {
     try {
       return await this.customRequest(
-        "POST", 
-        "/lol-login/v1/session/invoke?destination=lcdsServiceProxy&method=call&args=[\"\",\"teambuilder-draft\",\"quitV2\",\"\"]",
+        "POST",
+        '/lol-login/v1/session/invoke?destination=lcdsServiceProxy&method=call&args=["","teambuilder-draft","quitV2",""]',
         ""
       );
     } catch (error) {
@@ -1049,18 +1157,21 @@ class LcuService {
    */
   async getBlueSide(): Promise<LcuResponse> {
     try {
-      const response = await this.customRequest("GET", "/lol-champ-select/v1/session");
+      const response = await this.customRequest(
+        "GET",
+        "/lol-champ-select/v1/session"
+      );
       if (!response.success || !response.data) {
         return response;
       }
 
       const session = response.data;
       const myTeam = session.myTeam;
-      
+
       if (!myTeam || !Array.isArray(myTeam) || myTeam.length === 0) {
         return {
           success: false,
-          message: "Could not determine team side"
+          message: "Could not determine team side",
         };
       }
 
@@ -1070,7 +1181,7 @@ class LcuService {
       return {
         success: true,
         message: `You are on the ${side} side`,
-        data: { side, teamId }
+        data: { side, teamId },
       };
     } catch (error) {
       return {
@@ -1086,7 +1197,10 @@ class LcuService {
    */
   async massDisenchantLoot(lootType: string): Promise<LcuResponse> {
     try {
-      const lootResponse = await this.customRequest("GET", "/lol-loot/v1/player-loot-map");
+      const lootResponse = await this.customRequest(
+        "GET",
+        "/lol-loot/v1/player-loot-map"
+      );
       if (!lootResponse.success || !lootResponse.data) {
         return lootResponse;
       }
@@ -1097,11 +1211,12 @@ class LcuService {
 
       for (const lootKey in lootMap) {
         const loot = lootMap[lootKey];
-        
+
         if (loot.type && loot.type.startsWith(lootType)) {
-          const disenchantCase = lootType === "STATSTONE_SHARD" ? "DISENCHANT" : "disenchant";
+          const disenchantCase =
+            lootType === "STATSTONE_SHARD" ? "DISENCHANT" : "disenchant";
           const disenchantName = loot.type;
-          
+
           const result = await this.customRequest(
             "POST",
             `/lol-loot/v1/recipes/${disenchantName}_${disenchantCase}/craft?repeat=1`,
@@ -1115,14 +1230,14 @@ class LcuService {
           }
 
           // Add small delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
       }
 
       return {
         success: true,
         message: `Disenchanted ${disenchantedCount} items. Failed: ${failedCount}`,
-        data: { disenchantedCount, failedCount }
+        data: { disenchantedCount, failedCount },
       };
     } catch (error) {
       return {
@@ -1139,11 +1254,15 @@ class LcuService {
   async setMinimapScale(scale: number): Promise<LcuResponse> {
     try {
       const scaleValue = scale / 33.33;
-      return await this.customRequest("PATCH", "/lol-game-settings/v1/game-settings", {
-        HUD: {
-          MinimapScale: scaleValue
+      return await this.customRequest(
+        "PATCH",
+        "/lol-game-settings/v1/game-settings",
+        {
+          HUD: {
+            MinimapScale: scaleValue,
+          },
         }
-      });
+      );
     } catch (error) {
       return {
         success: false,
@@ -1157,7 +1276,10 @@ class LcuService {
    */
   async startQueue(): Promise<LcuResponse> {
     try {
-      return await this.customRequest("POST", "/lol-lobby/v2/lobby/matchmaking/search");
+      return await this.customRequest(
+        "POST",
+        "/lol-lobby/v2/lobby/matchmaking/search"
+      );
     } catch (error) {
       return {
         success: false,
@@ -1171,7 +1293,10 @@ class LcuService {
    */
   async stopQueue(): Promise<LcuResponse> {
     try {
-      return await this.customRequest("DELETE", "/lol-lobby/v2/lobby/matchmaking/search");
+      return await this.customRequest(
+        "DELETE",
+        "/lol-lobby/v2/lobby/matchmaking/search"
+      );
     } catch (error) {
       return {
         success: false,
@@ -1201,10 +1326,14 @@ class LcuService {
    */
   async setRoles(primary: string, secondary: string): Promise<LcuResponse> {
     try {
-      return await this.customRequest("PUT", "/lol-lobby/v1/lobby/members/localMember/position-preferences", {
-        firstPreference: primary,
-        secondPreference: secondary
-      });
+      return await this.customRequest(
+        "PUT",
+        "/lol-lobby/v1/lobby/members/localMember/position-preferences",
+        {
+          firstPreference: primary,
+          secondPreference: secondary,
+        }
+      );
     } catch (error) {
       return {
         success: false,
@@ -1213,6 +1342,52 @@ class LcuService {
     }
   }
 
+  /**
+   * Flush DNS cache to fix unknown player issues in League of Legends
+   * This runs ipconfig /flushdns on Windows with admin privileges
+   */
+  async flushDns(): Promise<LcuResponse> {
+    try {
+      return await invoke<LcuResponse>("flush_dns");
+    } catch (error) {
+      return {
+        success: false,
+        message: String(error),
+      };
+    }
+  }
+
+  /**
+   * Check if PersistedSettings.json is read-only
+   * This protects League of Legends settings from being overwritten
+   */
+  async checkSettingsReadonly(): Promise<LcuResponse> {
+    try {
+      return await invoke<LcuResponse>("check_settings_readonly");
+    } catch (error) {
+      return {
+        success: false,
+        message: String(error),
+      };
+    }
+  }
+
+  /**
+   * Toggle read-only status of PersistedSettings.json
+   * @param setReadonly Whether to set the file as read-only or writable
+   */
+  async toggleSettingsReadonly(setReadonly: boolean): Promise<LcuResponse> {
+    try {
+      return await invoke<LcuResponse>("toggle_settings_readonly", {
+        setReadonly,
+      });
+    } catch (error) {
+      return {
+        success: false,
+        message: String(error),
+      };
+    }
+  }
 }
 
 export const lcuService = new LcuService();

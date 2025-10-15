@@ -1,5 +1,6 @@
 use crate::lcu_connection::{
-    find_league_client_path, get_endpoint, make_lcu_request, LcuCredentials, LcuResponse,
+    find_league_client_path, get_endpoint, get_persisted_settings_path, make_lcu_request,
+    LcuCredentials, LcuResponse,
 };
 use serde_json::json;
 
@@ -266,13 +267,14 @@ pub async fn instalock(champion_id: i64) -> Result<LcuResponse, String> {
                                         "wardSkinId": 0
                                     });
 
-                                    if let Ok(_) = make_lcu_request(
+                                    if make_lcu_request(
                                         &credentials,
                                         "POST",
                                         "/lol-champ-select/v1/session/my-selection",
                                         Some(select_body),
                                     )
                                     .await
+                                    .is_ok()
                                     {
                                         println!("Instalock: Champion selection successful, completing action");
                                         return make_lcu_request(
@@ -673,10 +675,12 @@ pub fn launch_new_client() -> Result<LcuResponse, String> {
         let args_cstr = CString::new("--allow-multiple-clients")
             .map_err(|e| format!("Invalid arguments: {}", e))?;
 
+        let open_cstr = CString::new("open").map_err(|e| format!("Invalid open command: {}", e))?;
+
         let result = unsafe {
             ShellExecuteA(
                 std::ptr::null_mut(),
-                b"open\0".as_ptr() as *const i8,
+                open_cstr.as_ptr(),
                 client_path_cstr.as_ptr(),
                 args_cstr.as_ptr(),
                 std::ptr::null(),
@@ -816,5 +820,209 @@ pub async fn is_queue_available(queue_id: i64) -> Result<LcuResponse, String> {
         })
     } else {
         Err("Failed to retrieve queue information".to_string())
+    }
+}
+
+/// Flush DNS cache to fix unknown player issues
+#[tauri::command]
+pub fn flush_dns() -> Result<LcuResponse, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+
+        // Use PowerShell to run ipconfig /flushdns with elevated privileges
+        // This will show UAC prompt but no CMD window
+        let output = Command::new("powershell")
+            .args([
+                "-Command",
+                "Start-Process",
+                "ipconfig",
+                "-ArgumentList",
+                "/flushdns",
+                "-Verb",
+                "RunAs",
+                "-WindowStyle",
+                "Hidden",
+                "-Wait",
+            ])
+            .output()
+            .map_err(|e| format!("Failed to execute DNS flush command: {}", e))?;
+
+        if output.status.success() {
+            Ok(LcuResponse {
+                success: true,
+                message: "DNS cache flushed successfully. This should fix unknown player issues."
+                    .to_string(),
+                data: None,
+            })
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Ok(LcuResponse {
+                success: false,
+                message: format!("Failed to flush DNS cache: {}", stderr),
+                data: None,
+            })
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        // For non-Windows systems, try common DNS flush commands
+        use std::process::Command;
+
+        // Try different DNS flush commands for different systems
+        let commands = vec![
+            vec!["sudo", "systemd-resolve", "--flush-caches"], // systemd
+            vec!["sudo", "killall", "-HUP", "mDNSResponder"],  // macOS
+            vec!["sudo", "service", "nscd", "restart"],        // Some Linux systems
+            vec!["sudo", "rndc", "flush"],                     // BIND DNS server
+        ];
+
+        let mut last_error = String::new();
+
+        for cmd in commands {
+            if let Ok(output) = Command::new(&cmd[0]).args(&cmd[1..]).output() {
+                if output.status.success() {
+                    return Ok(LcuResponse {
+                        success: true,
+                        message: "DNS cache flushed successfully.".to_string(),
+                        data: None,
+                    });
+                } else {
+                    last_error = String::from_utf8_lossy(&output.stderr).to_string();
+                }
+            }
+        }
+
+        Ok(LcuResponse {
+            success: false,
+            message: format!("Failed to flush DNS cache on this system: {}", last_error),
+            data: None,
+        })
+    }
+}
+
+/// Check if PersistedSettings.json is read-only
+#[tauri::command]
+pub fn check_settings_readonly() -> Result<LcuResponse, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::fs;
+        use std::path::Path;
+
+        let settings_path = match get_persisted_settings_path() {
+            Some(path) => path,
+            None => {
+                return Ok(LcuResponse {
+                    success: false,
+                    message:
+                        "Could not find League of Legends installation. Make sure League of Legends is installed."
+                            .to_string(),
+                    data: None,
+                });
+            }
+        };
+
+        if !Path::new(&settings_path).exists() {
+            return Ok(LcuResponse {
+                success: false,
+                message:
+                    "PersistedSettings.json not found. Make sure League of Legends is installed."
+                        .to_string(),
+                data: None,
+            });
+        }
+
+        match fs::metadata(&settings_path) {
+            Ok(metadata) => {
+                let is_readonly = metadata.permissions().readonly();
+                Ok(LcuResponse {
+                    success: true,
+                    message: if is_readonly {
+                        "File is read-only"
+                    } else {
+                        "File is writable"
+                    }
+                    .to_string(),
+                    data: Some(serde_json::json!(is_readonly)),
+                })
+            }
+            Err(e) => Ok(LcuResponse {
+                success: false,
+                message: format!("Failed to check file permissions: {}", e),
+                data: None,
+            }),
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(LcuResponse {
+            success: false,
+            message: "Read-only settings management is only supported on Windows".to_string(),
+            data: None,
+        })
+    }
+}
+
+/// Toggle read-only status of PersistedSettings.json
+#[tauri::command]
+pub fn toggle_settings_readonly(set_readonly: bool) -> Result<LcuResponse, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::fs;
+        use std::path::Path;
+
+        let settings_path = match get_persisted_settings_path() {
+            Some(path) => path,
+            None => {
+                return Ok(LcuResponse {
+                    success: false,
+                    message:
+                        "Could not find League of Legends installation. Make sure League of Legends is installed."
+                            .to_string(),
+                    data: None,
+                });
+            }
+        };
+
+        if !Path::new(&settings_path).exists() {
+            return Ok(LcuResponse {
+                success: false,
+                message:
+                    "PersistedSettings.json not found. Make sure League of Legends is installed."
+                        .to_string(),
+                data: None,
+            });
+        }
+
+        let mut perms = fs::metadata(&settings_path)
+            .map_err(|e| format!("Failed to get file metadata: {}", e))?
+            .permissions();
+
+        perms.set_readonly(set_readonly);
+
+        fs::set_permissions(&settings_path, perms)
+            .map_err(|e| format!("Failed to set file permissions: {}", e))?;
+
+        Ok(LcuResponse {
+            success: true,
+            message: if set_readonly {
+                "PersistedSettings.json is now read-only. Your settings are protected."
+            } else {
+                "PersistedSettings.json is now writable. Settings can be modified."
+            }
+            .to_string(),
+            data: Some(serde_json::json!(set_readonly)),
+        })
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(LcuResponse {
+            success: false,
+            message: "Read-only settings management is only supported on Windows".to_string(),
+            data: None,
+        })
     }
 }

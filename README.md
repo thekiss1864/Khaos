@@ -1,4 +1,4 @@
-# 🎮 Khaos - League of Legends Profile Tool
+# Khaos - League of Legends Profile Tool
 
 [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/yourusername/khaos/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -9,7 +9,7 @@
 
 A modern desktop application built with **Tauri**, **Svelte**, **TypeScript**, and **Rust** that allows you to customize your League of Legends profile in ways the official client doesn't expose. Connect directly to the League Client API (LCU) to unlock powerful profile customization features.
 
-## 🚀 Tech Stack
+## Tech Stack
 
 - **Backend**: Rust + Tauri
 - **Frontend**: Svelte + TypeScript
@@ -18,7 +18,7 @@ A modern desktop application built with **Tauri**, **Svelte**, **TypeScript**, a
 - **Package Manager**: Bun
 - **APIs**: League Client API (LCU) + Riot Data Dragon
 
-## 📸 Screenshots
+## Screenshots
 
 <!-- Add screenshots here when available -->
 <!-- ![Khaos Main Interface](screenshots/main-interface.png) -->
@@ -27,32 +27,32 @@ A modern desktop application built with **Tauri**, **Svelte**, **TypeScript**, a
 
 *Screenshots will be added soon after the first stable release.*
 
-## ✨ Features
+## Features
 
-### 🎨 League Profile Customization
+### League Profile Customization
 
-#### 💬 Custom Status Messages
+#### Custom Status Messages
 Set personalized status messages that appear in your profile and chat.
 - **Custom text input** (up to 200 characters)
-- **Emoji support** 🎮
+- **Emoji support**
 - **Quick preset messages**
 - **Real-time character counter**
 
-#### 🎨 Profile Backgrounds
+#### Profile Backgrounds
 Transform your profile with any champion skin, even those you don't own.
 - **Browse all champions** with high-quality previews
 - **Search functionality** to find champions quickly
 - **All skins available** - no restrictions
 - **Instant application** to your profile
 
-#### 🖼️ Summoner Icons
+#### Summoner Icons
 Access every summoner icon in the game, including unreleased ones.
 - **Icon gallery** with popular ranges
 - **Direct ID input** for precise selection
 - **Search functionality**
 - **Preview before setting**
 
-#### 🏆 Chat Rank Display
+#### Chat Rank Display
 Show off any rank tier in your chat profile.
 - **All rank tiers** (Iron to Challenger)
 - **Division selection** (I-IV for applicable ranks)
@@ -60,82 +60,82 @@ Show off any rank tier in your chat profile.
 - **Live preview** with color coding
 - **Note**: Visual only - doesn't affect actual MMR
 
-#### 🐾 Chibi Icons (TFT Companion)
+#### Chibi Icons (TFT Companion)
 Customize your Teamfight Tactics companion icon.
 - **Any profile icon** as chibi
 - **Quick presets** available
 - **Same ID system** as summoner icons
 
-#### 🎯 Practice Tool Lobby
+#### Practice Tool Lobby
 Create practice lobbies instantly for training and testing.
 - **One-click creation**
 - **Custom lobby names**
 - **Practice benefits**: Instant level up, unlimited gold, reset cooldowns
 - **Perfect for learning** combos and mechanics
 
-### ⚙️ Advanced Tools
+### Advanced Tools
 
-#### 🤖 Champion Select Automation
+#### Champion Select Automation
 Powerful automation features for champion select phase.
-- **⚡ Auto-accept** matchmaking queue
-- **🎯 Instalock** champion with customizable delay
-- **🚫 Auto-ban** with timing control
-- **💬 Auto-messaging** in champ select
-- **🔇 Instant mute** all players
-- **🔍 Multi-search** players (OP.GG, U.GG, etc.)
-- **📊 Auto-import runes** from OP.GG
-- **🚪 Quick dodge** without client restart
-- **🔄 Backup picks** if main champion unavailable
-- **📍 Side notifications** (Blue/Red)
-- **🎮 Role selection**
-- **⚠️ Dodge on ban** protection
+- **Auto-accept** matchmaking queue
+- **Instalock** champion with customizable delay
+- **Auto-ban** with timing control
+- **Auto-messaging** in champ select
+- **Instant mute** all players
+- **Multi-search** players (OP.GG, U.GG, etc.)
+- **Auto-import runes** from OP.GG
+- **Quick dodge** without client restart
+- **Backup picks** if main champion unavailable
+- **Side notifications** (Blue/Red)
+- **Role selection**
+- **Dodge on ban** protection
 
-#### 🏗️ Loot & Settings Manager
+#### Loot & Settings Manager
 Mass disenchant loot and customize game settings.
-- **🔥 Mass disenchant** by type:
+- **Mass disenchant** by type:
   - Champion shards → Blue Essence
   - Skin shards → Orange Essence
   - Eternals → Orange Essence
   - Ward skins → Ward Essence
   - Emotes, Icons, Companions
-- **🗺️ Minimap scale** customization (0-350%)
-- **⚡ One-click disenchant all**
-- **⚠️ Permanent action** - cannot be undone
+- **Minimap scale** customization (0-350%)
+- **One-click disenchant all**
+- **Permanent action** - cannot be undone
 
-#### 📊 Champion Information
+#### Champion Information
 Comprehensive champion data and mastery tools.
 - **Detailed champion information**
 - **Mastery level checking**
 - **Owned skins viewer**
 - **Role and availability data**
 
-#### 🎮 Queue Management
+#### Queue Management
 Advanced queue type monitoring and management.
 - **Current queue status**
 - **Available queue types**
 - **Support for all modes**: Ranked Solo/Duo, Flex, ARAM, TFT, Practice Tool
 
-### 🎯 Key Benefits
+### Key Benefits
 
-- **🎨 Unlimited Customization**: Break free from official client limitations
-- **⚡ Instant Results**: Changes apply immediately
-- **🔒 Secure & Local**: No data sent to external servers
-- **🆓 Completely Free**: No purchases required
-- **🚀 Performance Optimized**: Built with Rust for maximum speed
+- **Unlimited Customization**: Break free from official client limitations
+- **Instant Results**: Changes apply immediately
+- **Secure & Local**: No data sent to external servers
+- **Completely Free**: No purchases required
+- **Performance Optimized**: Built with Rust for maximum speed
 
-- 🎨 **Beautiful**: Modern UI with DaisyUI and Tailwind CSS
-- 🌓 **Theme Support**: Dark mode (softextreme) and Light mode (lemonade)
+- **Beautiful**: Modern UI with DaisyUI and Tailwind CSS
+- **Theme Support**: Dark mode (softextreme) and Light mode (lemonade)
 
-## 📖 Documentation
+## Documentation
 
 - **[FEATURES.md](FEATURES.md)** - Detailed feature documentation and usage guide
 - **[START_HERE.md](START_HERE.md)** - Quick start guide for development
 
-## 🔧 How It Works
+## How It Works
 
 Khaos leverages the **League Client Update (LCU) API** - Riot Games' official local REST API that powers their client applications. This API is exposed on your local machine when the League of Legends client is running, allowing direct communication for profile customization and game management.
 
-### 🏗️ Technical Architecture
+### Technical Architecture
 
 #### Frontend Layer
 - **Svelte 4** with TypeScript for reactive, component-based UI
@@ -149,7 +149,7 @@ Khaos leverages the **League Client Update (LCU) API** - Riot Games' official lo
 - **Direct LCU API communication** with secure authentication
 - **Self-signed certificate handling** for HTTPS connections
 
-### 🔌 API Integration
+### API Integration
 
 #### League Client API (LCU)
 - **Local REST API** exposed by the League client at `https://127.0.0.1:<port>`
@@ -163,7 +163,7 @@ Khaos leverages the **League Client Update (LCU) API** - Riot Games' official lo
 - **High-quality images** and metadata for UI previews
 - **Version management** for accurate data retrieval
 
-### 🔐 Security & Authentication
+### Security & Authentication
 
 #### Lockfile Authentication
 Khaos reads the League client's lockfile (typically at `C:\Riot Games\League of Legends\lockfile`) to obtain:
@@ -177,7 +177,7 @@ Khaos reads the League client's lockfile (typically at `C:\Riot Games\League of 
 - **No external data transmission** - your profile information never leaves your computer
 - **Open source transparency** - all code is auditable
 
-### ⚙️ Requirements & Setup
+### Requirements & Setup
 
 #### System Requirements
 - **League of Legends client must be running** for API access
@@ -191,7 +191,7 @@ Khaos reads the League client's lockfile (typically at `C:\Riot Games\League of 
 3. **API Connection**: Establishes HTTPS connection to local LCU API
 4. **Feature Access**: Enables all customization and automation features
 
-### 🎯 Feature Implementation
+### Feature Implementation
 
 #### Profile Customization
 - **Direct API calls** to LCU endpoints for instant changes
@@ -208,13 +208,13 @@ Khaos reads the League client's lockfile (typically at `C:\Riot Games\League of 
 - **Cache management** for Data Dragon API responses
 - **Error recovery** for network and API failures
 
-### ⚠️ Important Disclaimer
+### Important Disclaimer
 
 **This project is not endorsed by Riot Games and does not reflect the views or opinions of Riot Games or anyone officially involved in producing or managing League of Legends. League of Legends and Riot Games are trademarks or registered trademarks of Riot Games, Inc.**
 
 Use at your own discretion. While these features use the official LCU API for cosmetic changes, Riot's policies regarding third-party tools can change. This tool is provided as-is for educational and personal use.
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### "Could not connect to League Client"
 **Solution:** Make sure the League of Legends client is running before using the app.
@@ -249,7 +249,7 @@ Use at your own discretion. While these features use the official LCU API for co
 - The LCU API has rate limits to prevent spam
 - Reduce automation frequency if needed
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 Khaos/
@@ -293,7 +293,7 @@ Khaos/
 └── ...config files
 ```
 
-## 📥 Installation
+## Installation
 
 ### Prerequisites
 
@@ -318,7 +318,7 @@ Khaos/
 
 > **Note**: First run may take longer as Rust dependencies are compiled.
 
-## 🚀 Development
+## Development
 
 ### Run Development Server
 
@@ -347,7 +347,7 @@ bun run dev
 npm run dev
 ```
 
-## 🏗️ Building for Production
+## Building for Production
 
 ### Build the app
 
@@ -369,7 +369,7 @@ The built application will be available in `src-tauri/target/release/bundle/`
 - **macOS**: `.dmg` and `.app` bundle
 - **Linux**: `.deb`, `.AppImage`, and other formats
 
-## 🎨 Themes
+## Themes
 
 ### Default Theme (Dark Mode): softextreme
 - Base colors optimized for dark environments
@@ -385,7 +385,7 @@ The built application will be available in `src-tauri/target/release/bundle/`
 
 Click the theme switcher button in the top-right corner of the app to toggle between themes. The theme preference is automatically saved to localStorage.
 
-## 🔧 Customization
+## Customization
 
 ### Adding Tauri Commands
 
@@ -426,7 +426,7 @@ Click the theme switcher button in the top-right corner of the app to toggle bet
 2. Use Svelte's `writable`, `readable`, or `derived` stores
 3. Import and subscribe to it in your components
 
-## 📚 Resources
+## Resources
 
 - [Tauri Documentation](https://tauri.app/)
 - [Svelte Documentation](https://svelte.dev/)
@@ -434,7 +434,7 @@ Click the theme switcher button in the top-right corner of the app to toggle bet
 - [Tailwind CSS](https://tailwindcss.com/)
 - [TypeScript](https://www.typescriptlang.org/)
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for detailed information.
 
@@ -471,12 +471,12 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ### Areas for Contribution
 
-- 🐛 **Bug fixes** - Help improve stability
-- ✨ **New features** - Add more LCU API integrations
-- 🎨 **UI/UX improvements** - Enhance the user interface
-- 📚 **Documentation** - Improve guides and examples
-- 🧪 **Testing** - Add automated tests
-- 🌐 **Localization** - Add support for multiple languages
+- **Bug fixes** - Help improve stability
+- **New features** - Add more LCU API integrations
+- **UI/UX improvements** - Enhance the user interface
+- **Documentation** - Improve guides and examples
+- **Testing** - Add automated tests
+- **Localization** - Add support for multiple languages
 
 ### Reporting Issues
 
@@ -487,7 +487,7 @@ When reporting bugs, please include:
 - Expected vs actual behavior
 - Any error messages or logs
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **Riot Games** for the League Client API that makes this project possible
 - **Tauri Team** for the amazing desktop app framework
@@ -495,26 +495,26 @@ When reporting bugs, please include:
 - **DaisyUI & Tailwind CSS** for the beautiful component system
 - **Open source community** for the tools and libraries used
 
-## 📊 Project Status
+## Project Status
 
 - **Current Version**: 0.1.0 (Pre-release)
 - **Development Status**: Active development
 - **License**: MIT
 - **Platform Support**: Windows, macOS, Linux
 
-## 📝 License
+## License
 
 This project is open source and available under the [MIT License](LICENSE).
 
 ---
 
-## 📞 Support & Community
+## Support & Community
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/khaos/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/khaos/discussions)
 - **Discord**: *Coming soon*
 
-## 🔗 Links
+## Links
 
 - **Repository**: [GitHub](https://github.com/yourusername/khaos)
 - **Releases**: [GitHub Releases](https://github.com/yourusername/khaos/releases)
@@ -524,9 +524,9 @@ This project is open source and available under the [MIT License](LICENSE).
 
 <div align="center">
 
-**Built with ❤️ using Tauri + Svelte + TypeScript**
+**Built with using Tauri + Svelte + TypeScript**
 
-*Show your support by starring ⭐ the repository!*
+*Show your support by starring the repository!*
 
 </div>
 

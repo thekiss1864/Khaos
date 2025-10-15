@@ -92,13 +92,17 @@
     "updater": {
       "active": false
     },
+    "systemTray": {
+      "iconPath": "icons/icon.ico",
+      "iconAsTemplate": true
+    },
     "windows": [
       {
         "fullscreen": false,
-        "resizable": true,
+        "resizable": false,
         "title": "Khaos",
-        "width": 1200,
-        "height": 800
+        "width": 1290,
+        "height": 831
       }
     ]
   }

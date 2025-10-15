@@ -79,30 +79,10 @@ impl LcuCredentials {
 
 /// Dynamically find the League of Legends client executable path
 pub fn find_league_client_path() -> Option<String> {
-    // Check potential registry locations
-    let registry_paths = vec![
-        (
-            HKEY_LOCAL_MACHINE,
-            r"SOFTWARE\Riot Games, Inc\League of Legends",
-        ),
-        (
-            HKEY_CURRENT_USER,
-            r"SOFTWARE\Riot Games, Inc\League of Legends",
-        ),
-        (
-            HKEY_LOCAL_MACHINE,
-            r"SOFTWARE\WOW6432Node\Riot Games, Inc\League of Legends",
-        ),
-    ];
-
-    for (root, path) in registry_paths {
-        if let Ok(key) = RegKey::predef(root).open_subkey(path) {
-            if let Ok(install_path) = key.get_value::<String, _>("InstallPath") {
-                let client_path = format!("{}LeagueClient.exe", install_path);
-                if std::path::Path::new(&client_path).exists() {
-                    return Some(client_path);
-                }
-            }
+    if let Some(install_dir) = find_league_install_dir() {
+        let client_path = format!("{}LeagueClient.exe", install_dir);
+        if std::path::Path::new(&client_path).exists() {
+            return Some(client_path);
         }
     }
 
@@ -141,6 +121,71 @@ pub fn find_league_client_path() -> Option<String> {
     }
 
     None
+}
+
+/// Dynamically find the League of Legends installation directory
+pub fn find_league_install_dir() -> Option<String> {
+    // Check potential registry locations
+    let registry_paths = vec![
+        (
+            HKEY_LOCAL_MACHINE,
+            r"SOFTWARE\Riot Games, Inc\League of Legends",
+        ),
+        (
+            HKEY_CURRENT_USER,
+            r"SOFTWARE\Riot Games, Inc\League of Legends",
+        ),
+        (
+            HKEY_LOCAL_MACHINE,
+            r"SOFTWARE\WOW6432Node\Riot Games, Inc\League of Legends",
+        ),
+    ];
+
+    for (root, path) in registry_paths {
+        if let Ok(key) = RegKey::predef(root).open_subkey(path) {
+            if let Ok(install_path) = key.get_value::<String, _>("InstallPath") {
+                if std::path::Path::new(&install_path).exists() {
+                    return Some(install_path);
+                }
+            }
+        }
+    }
+
+    // Additional manual path checks for the directory
+    let possible_dirs = vec![
+        "C:\\Riot Games\\League of Legends\\",
+        "C:\\Program Files\\Riot Games\\League of Legends\\",
+        "C:\\Program Files (x86)\\Riot Games\\League of Legends\\",
+        "D:\\Riot Games\\League of Legends\\",
+    ];
+
+    for dir in possible_dirs {
+        if std::path::Path::new(dir).exists() {
+            return Some(dir.to_string());
+        }
+    }
+
+    // Check user profile directory for potential custom installations
+    if let Ok(user_profile) = env::var("USERPROFILE") {
+        let custom_dirs = vec![
+            format!("{}\\Games\\Riot Games\\League of Legends\\", user_profile),
+            format!("{}\\Documents\\League of Legends\\", user_profile),
+        ];
+
+        for dir in custom_dirs {
+            if std::path::Path::new(&dir).exists() {
+                return Some(dir);
+            }
+        }
+    }
+
+    None
+}
+
+/// Get the path to PersistedSettings.json
+pub fn get_persisted_settings_path() -> Option<String> {
+    find_league_install_dir()
+        .map(|install_dir| format!("{}Config\\PersistedSettings.json", install_dir))
 }
 
 /// Make a request to the LCU API

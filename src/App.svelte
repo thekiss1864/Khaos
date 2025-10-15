@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
   import Router from "svelte-spa-router";
   import { theme } from "$lib/stores/theme";
+  import { champSelectAutomation } from "$lib/services/champSelectAutomation";
   import ThemeSwitcher from "$lib/components/ThemeSwitcher.svelte";
   import Notification from "$lib/components/Notification.svelte";
 
@@ -22,6 +23,13 @@
 
   onMount(() => {
     theme.init();
+    // Champion select automation is started automatically via store subscription
+    console.log("App: onMount completed");
+  });
+
+  onDestroy(() => {
+    // Clean up automation when app is destroyed
+    champSelectAutomation.destroy();
   });
 
   // Define routes

@@ -16,7 +16,7 @@ tauri-build = { version = "1.5", features = [] }
 # Add winreg dependency
 winreg = "0.50.0"
 winapi = { version = "0.3", features = ["shellapi", "winuser"] }
-tauri = { version = "1.5", features = [ "window-show", "window-unmaximize", "window-hide", "protocol-asset", "fs-copy-file", "app-show", "app-hide", "fs-remove-dir", "window-close", "process-relaunch", "window-minimize", "window-start-dragging", "window-maximize", "fs-rename-file", "path-all", "fs-remove-file", "shell-open", "fs-read-file", "fs-write-file", "fs-read-dir", "fs-create-dir", "dialog-open", "dialog-save"] }
+tauri = { version = "1.5", features = [ "system-tray", "window-show", "window-unmaximize", "window-hide", "protocol-asset", "fs-copy-file", "app-show", "app-hide", "fs-remove-dir", "window-close", "process-relaunch", "window-minimize", "window-start-dragging", "window-maximize", "fs-rename-file", "path-all", "fs-remove-file", "shell-open", "fs-read-file", "fs-write-file", "fs-read-dir", "fs-create-dir", "dialog-open", "dialog-save"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
