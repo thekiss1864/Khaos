@@ -1,73 +1,39 @@
+//! Connection layer for the two local APIs Khaos talks to:
+//!
+//! * **League Client (LCU)** – `LeagueClientUx`, the API behind `/lol-*` endpoints.
+//! * **Riot Client** – `RiotClientServices`, the API behind `/chat/*`, `/riotclient/*`
+//!   endpoints such as `/chat/v1/suspend`. These are *not* served by the LCU port.
+//!
+//! Credentials are discovered in this order:
+//! 1. The running `LeagueClientUx` process command line (`--app-port`,
+//!    `--remoting-auth-token`, `--riotclient-app-port`, `--riotclient-auth-token`,
+//!    `--install-directory`). This works no matter which drive League is installed on.
+//! 2. The `lockfile` in the League install directory (found from the process path,
+//!    Riot's product metadata, the registry, or common install paths).
+//! 3. For the Riot Client, its own lockfile under the user's local app data.
+//!
+//! Credentials are cached and re-discovered automatically when the client restarts.
+
 use base64::{engine::general_purpose, Engine as _};
+use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
-use std::env;
-use std::fs;
-use std::path::Path;
-use winreg::enums::*;
-use winreg::RegKey;
+use serde_json::Value;
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::Duration;
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LcuCredentials {
     pub port: u16,
     pub token: String,
-    pub protocol: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct LcuResponse {
-    pub success: bool,
-    pub message: String,
-    pub data: Option<serde_json::Value>,
 }
 
 impl LcuCredentials {
-    /// Find and parse LCU credentials from the lockfile
-    pub fn from_lockfile() -> Result<Self, String> {
-        // Try to find the lockfile in common locations
-        let lockfile_paths = vec![
-            "C:\\Riot Games\\League of Legends\\lockfile",
-            "C:\\Program Files\\Riot Games\\League of Legends\\lockfile",
-            "C:\\Program Files (x86)\\Riot Games\\League of Legends\\lockfile",
-        ];
-
-        for path in lockfile_paths {
-            if Path::new(path).exists() {
-                return Self::parse_lockfile(path);
-            }
-        }
-
-        Err("League of Legends lockfile not found. Make sure the client is running.".to_string())
-    }
-
-    /// Parse the lockfile to extract credentials
-    fn parse_lockfile(path: &str) -> Result<Self, String> {
-        let content =
-            fs::read_to_string(path).map_err(|e| format!("Failed to read lockfile: {}", e))?;
-
-        // Lockfile format: LeagueClient:PID:PORT:TOKEN:PROTOCOL
-        let parts: Vec<&str> = content.split(':').collect();
-
-        if parts.len() != 5 {
-            return Err("Invalid lockfile format".to_string());
-        }
-
-        let port = parts[2]
-            .parse::<u16>()
-            .map_err(|_| "Invalid port in lockfile".to_string())?;
-
-        Ok(LcuCredentials {
-            port,
-            token: parts[3].to_string(),
-            protocol: parts[4].to_string(),
-        })
-    }
-
-    /// Get the base URL for LCU API
     pub fn base_url(&self) -> String {
         format!("https://127.0.0.1:{}", self.port)
     }
 
-    /// Get the authorization header value
     pub fn auth_header(&self) -> String {
         let credentials = format!("riot:{}", self.token);
         format!(
@@ -77,184 +43,514 @@ impl LcuCredentials {
     }
 }
 
-/// Dynamically find the League of Legends client executable path
-pub fn find_league_client_path() -> Option<String> {
-    if let Some(install_dir) = find_league_install_dir() {
-        let client_path = format!("{}LeagueClient.exe", install_dir);
-        if std::path::Path::new(&client_path).exists() {
-            return Some(client_path);
+/// Which local API a request goes to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Target {
+    League,
+    RiotClient,
+}
+
+impl Target {
+    pub fn from_str(value: Option<&str>) -> Target {
+        match value.map(|v| v.to_ascii_lowercase()) {
+            Some(v) if v == "riot" || v == "riotclient" || v == "riot-client" => Target::RiotClient,
+            _ => Target::League,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LcuResponse {
+    pub success: bool,
+    pub message: String,
+    pub data: Option<Value>,
+    /// HTTP status code returned by the client, when a request was made.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<u16>,
+}
+
+impl LcuResponse {
+    pub fn ok(message: impl Into<String>, data: Option<Value>) -> Self {
+        LcuResponse {
+            success: true,
+            message: message.into(),
+            data,
+            status: None,
         }
     }
 
-    // Additional manual path checks
-    let possible_paths = vec![
-        "C:\\Riot Games\\League of Legends\\LeagueClient.exe",
-        "C:\\Program Files\\Riot Games\\League of Legends\\LeagueClient.exe",
-        "C:\\Program Files (x86)\\Riot Games\\League of Legends\\LeagueClient.exe",
-        "D:\\Riot Games\\League of Legends\\LeagueClient.exe",
-    ];
-
-    for path in possible_paths {
-        if std::path::Path::new(path).exists() {
-            return Some(path.to_string());
+    pub fn fail(message: impl Into<String>) -> Self {
+        LcuResponse {
+            success: false,
+            message: message.into(),
+            data: None,
+            status: None,
         }
     }
+}
 
-    // Check user profile directory for potential custom installations
-    if let Ok(user_profile) = env::var("USERPROFILE") {
-        let custom_paths = vec![
-            format!(
-                "{}\\Games\\Riot Games\\League of Legends\\LeagueClient.exe",
-                user_profile
-            ),
-            format!(
-                "{}\\Documents\\League of Legends\\LeagueClient.exe",
-                user_profile
-            ),
-        ];
+#[derive(Debug, Clone, Default)]
+struct ClientInfo {
+    league: Option<LcuCredentials>,
+    riot: Option<LcuCredentials>,
+    install_dir: Option<PathBuf>,
+}
 
-        for path in custom_paths {
-            if std::path::Path::new(&path).exists() {
-                return Some(path);
+lazy_static! {
+    static ref CLIENT_CACHE: Mutex<Option<ClientInfo>> = Mutex::new(None);
+    static ref HTTP: reqwest::Client = reqwest::Client::builder()
+        // Both local APIs use a self-signed certificate. Requests only ever go to 127.0.0.1.
+        .danger_accept_invalid_certs(true)
+        .timeout(Duration::from_secs(15))
+        .build()
+        .expect("failed to build HTTP client");
+}
+
+const LEAGUE_UX_PROCESS_NAMES: &[&str] = &["leagueclientux.exe", "leagueclientux"];
+const LEAGUE_PROCESS_NAMES: &[&str] = &["leagueclient.exe", "leagueclient"];
+
+fn arg_value(args: &[String], key: &str) -> Option<String> {
+    let prefix = format!("{}=", key);
+    args.iter()
+        .find_map(|a| a.trim_matches('"').strip_prefix(&prefix).map(|v| v.trim_matches('"').to_string()))
+        .filter(|v| !v.is_empty())
+}
+
+fn parse_lockfile(path: &Path) -> Option<LcuCredentials> {
+    // Format: <name>:<pid>:<port>:<password>:<protocol>
+    let content = std::fs::read_to_string(path).ok()?;
+    let parts: Vec<&str> = content.trim().split(':').collect();
+    if parts.len() < 5 {
+        return None;
+    }
+    let port = parts[2].parse::<u16>().ok()?;
+    Some(LcuCredentials {
+        port,
+        token: parts[3].to_string(),
+    })
+}
+
+/// Reads `product_install_full_path` from Riot's product metadata (Windows and macOS).
+fn install_dir_from_product_settings() -> Option<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Ok(program_data) = std::env::var("PROGRAMDATA") {
+        candidates.push(
+            PathBuf::from(program_data)
+                .join("Riot Games/Metadata/league_of_legends.live/league_of_legends.live.product_settings.yaml"),
+        );
+    }
+    candidates.push(PathBuf::from(
+        "/Users/Shared/Riot Games/Metadata/league_of_legends.live/league_of_legends.live.product_settings.yaml",
+    ));
+
+    for file in candidates {
+        let Ok(content) = std::fs::read_to_string(&file) else {
+            continue;
+        };
+        for line in content.lines() {
+            let line = line.trim();
+            if let Some(rest) = line.strip_prefix("product_install_full_path:") {
+                let dir = PathBuf::from(rest.trim().trim_matches('"').trim_matches('\''));
+                if dir.exists() {
+                    return Some(dir);
+                }
             }
         }
     }
-
     None
 }
 
-/// Dynamically find the League of Legends installation directory
-pub fn find_league_install_dir() -> Option<String> {
-    // Check potential registry locations
-    let registry_paths = vec![
-        (
-            HKEY_LOCAL_MACHINE,
-            r"SOFTWARE\Riot Games, Inc\League of Legends",
-        ),
-        (
-            HKEY_CURRENT_USER,
-            r"SOFTWARE\Riot Games, Inc\League of Legends",
-        ),
-        (
-            HKEY_LOCAL_MACHINE,
-            r"SOFTWARE\WOW6432Node\Riot Games, Inc\League of Legends",
-        ),
-    ];
+#[cfg(windows)]
+fn install_dir_from_registry() -> Option<PathBuf> {
+    use winreg::enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
+    use winreg::RegKey;
 
-    for (root, path) in registry_paths {
+    let keys = [
+        (HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Uninstall\Riot Game league_of_legends.live", "InstallLocation"),
+        (HKEY_LOCAL_MACHINE, r"SOFTWARE\Riot Games, Inc\League of Legends", "InstallPath"),
+        (HKEY_CURRENT_USER, r"SOFTWARE\Riot Games, Inc\League of Legends", "InstallPath"),
+        (HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Riot Games, Inc\League of Legends", "InstallPath"),
+    ];
+    for (root, path, value) in keys {
         if let Ok(key) = RegKey::predef(root).open_subkey(path) {
-            if let Ok(install_path) = key.get_value::<String, _>("InstallPath") {
-                if std::path::Path::new(&install_path).exists() {
-                    return Some(install_path);
+            if let Ok(dir) = key.get_value::<String, _>(value) {
+                let dir = PathBuf::from(dir);
+                if dir.exists() {
+                    return Some(dir);
+                }
+            }
+        }
+    }
+    None
+}
+
+#[cfg(not(windows))]
+fn install_dir_from_registry() -> Option<PathBuf> {
+    None
+}
+
+fn common_install_dirs() -> Vec<PathBuf> {
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    if cfg!(windows) {
+        for drive in ["C", "D", "E", "F"] {
+            dirs.push(PathBuf::from(format!("{}:\\Riot Games\\League of Legends", drive)));
+        }
+        dirs.push(PathBuf::from("C:\\Program Files\\Riot Games\\League of Legends"));
+        dirs.push(PathBuf::from("C:\\Program Files (x86)\\Riot Games\\League of Legends"));
+    } else {
+        dirs.push(PathBuf::from("/Applications/League of Legends.app/Contents/LoL"));
+        if let Ok(home) = std::env::var("HOME") {
+            dirs.push(PathBuf::from(home).join("Applications/League of Legends.app/Contents/LoL"));
+        }
+    }
+    dirs
+}
+
+fn riot_client_lockfile() -> Option<PathBuf> {
+    if let Ok(local) = std::env::var("LOCALAPPDATA") {
+        return Some(PathBuf::from(local).join("Riot Games/Riot Client/Config/lockfile"));
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        return Some(
+            PathBuf::from(home).join("Library/Application Support/Riot Games/Riot Client/Config/lockfile"),
+        );
+    }
+    None
+}
+
+fn discover() -> ClientInfo {
+    let mut info = ClientInfo::default();
+
+    let mut system = System::new();
+    system.refresh_processes_specifics(
+        ProcessesToUpdate::All,
+        true,
+        ProcessRefreshKind::nothing()
+            .with_cmd(UpdateKind::OnlyIfNotSet)
+            .with_exe(UpdateKind::OnlyIfNotSet),
+    );
+
+    let mut process_dir: Option<PathBuf> = None;
+    for process in system.processes().values() {
+        let name = process.name().to_string_lossy().to_ascii_lowercase();
+        let is_ux = LEAGUE_UX_PROCESS_NAMES.contains(&name.as_str());
+        let is_launcher = LEAGUE_PROCESS_NAMES.contains(&name.as_str());
+        if !is_ux && !is_launcher {
+            continue;
+        }
+
+        if is_ux {
+            let args: Vec<String> = process
+                .cmd()
+                .iter()
+                .map(|a| a.to_string_lossy().into_owned())
+                .collect();
+
+            if info.league.is_none() {
+                if let (Some(port), Some(token)) = (
+                    arg_value(&args, "--app-port").and_then(|p| p.parse::<u16>().ok()),
+                    arg_value(&args, "--remoting-auth-token"),
+                ) {
+                    info.league = Some(LcuCredentials { port, token });
+                }
+            }
+            if info.riot.is_none() {
+                if let (Some(port), Some(token)) = (
+                    arg_value(&args, "--riotclient-app-port").and_then(|p| p.parse::<u16>().ok()),
+                    arg_value(&args, "--riotclient-auth-token"),
+                ) {
+                    info.riot = Some(LcuCredentials { port, token });
+                }
+            }
+            if info.install_dir.is_none() {
+                info.install_dir = arg_value(&args, "--install-directory").map(PathBuf::from);
+            }
+        }
+
+        if process_dir.is_none() {
+            process_dir = process.exe().and_then(|p| p.parent()).map(Path::to_path_buf);
+        }
+    }
+
+    // Install directory: process args > process path > Riot metadata > registry > common paths.
+    if info.install_dir.is_none() {
+        let mut candidates: Vec<PathBuf> = Vec::new();
+        if let Some(dir) = process_dir {
+            // On macOS the UX binary lives inside nested .app bundles; walk up to find the lockfile.
+            let mut current = Some(dir.as_path());
+            while let Some(d) = current {
+                candidates.push(d.to_path_buf());
+                current = d.parent();
+            }
+        }
+        candidates.extend(install_dir_from_product_settings());
+        candidates.extend(install_dir_from_registry());
+        candidates.extend(common_install_dirs());
+
+        info.install_dir = candidates
+            .iter()
+            .find(|d| d.join("lockfile").exists())
+            .or_else(|| {
+                candidates
+                    .iter()
+                    .find(|d| d.join("LeagueClient.exe").exists() || d.join("Config").exists())
+            })
+            .cloned();
+    }
+
+    if info.league.is_none() {
+        info.league = info
+            .install_dir
+            .as_ref()
+            .and_then(|dir| parse_lockfile(&dir.join("lockfile")));
+    }
+
+    if info.riot.is_none() {
+        info.riot = riot_client_lockfile().and_then(|p| parse_lockfile(&p));
+    }
+
+    info
+}
+
+fn cached_info(force_refresh: bool) -> ClientInfo {
+    let mut cache = CLIENT_CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    let needs_refresh = force_refresh
+        || cache
+            .as_ref()
+            .map(|c| c.league.is_none())
+            .unwrap_or(true);
+    if needs_refresh {
+        *cache = Some(discover());
+    }
+    cache.clone().unwrap_or_default()
+}
+
+fn invalidate_cache() {
+    let mut cache = CLIENT_CACHE.lock().unwrap_or_else(|e| e.into_inner());
+    *cache = None;
+}
+
+fn credentials_for(target: Target, force_refresh: bool) -> Result<LcuCredentials, String> {
+    let info = cached_info(force_refresh);
+    match target {
+        Target::League => info.league.ok_or_else(|| {
+            "League client not found. Start League of Legends and log in, then try again.".to_string()
+        }),
+        Target::RiotClient => info.riot.ok_or_else(|| {
+            "Riot Client not found. Start League of Legends through the Riot Client, then try again."
+                .to_string()
+        }),
+    }
+}
+
+/// League install directory (the folder that contains `LeagueClient.exe` and `Config/`).
+pub fn league_install_dir() -> Option<PathBuf> {
+    let info = cached_info(false);
+    info.install_dir.or_else(|| {
+        install_dir_from_product_settings()
+            .or_else(install_dir_from_registry)
+            .or_else(|| {
+                common_install_dirs()
+                    .into_iter()
+                    .find(|d| d.join("Config").exists())
+            })
+    })
+}
+
+/// Path to `Config/PersistedSettings.json` in the League install directory.
+pub fn persisted_settings_path() -> Option<PathBuf> {
+    league_install_dir().map(|dir| dir.join("Config").join("PersistedSettings.json"))
+}
+
+/// Path to `RiotClientServices` from Riot's `RiotClientInstalls.json`.
+pub fn riot_client_services_path() -> Option<PathBuf> {
+    let mut files: Vec<PathBuf> = Vec::new();
+    if let Ok(program_data) = std::env::var("PROGRAMDATA") {
+        files.push(PathBuf::from(program_data).join("Riot Games/RiotClientInstalls.json"));
+    }
+    files.push(PathBuf::from("/Users/Shared/Riot Games/RiotClientInstalls.json"));
+
+    for file in files {
+        let Ok(content) = std::fs::read_to_string(&file) else {
+            continue;
+        };
+        let Ok(json) = serde_json::from_str::<Value>(&content) else {
+            continue;
+        };
+        for key in ["rc_default", "rc_live"] {
+            if let Some(path) = json[key].as_str() {
+                let mut path = PathBuf::from(path);
+                // On macOS this points at "Riot Client.app".
+                if path.extension().map(|e| e == "app").unwrap_or(false) {
+                    path = path.join("Contents/MacOS/RiotClientServices");
+                }
+                if path.exists() {
+                    return Some(path);
                 }
             }
         }
     }
 
-    // Additional manual path checks for the directory
-    let possible_dirs = vec![
-        "C:\\Riot Games\\League of Legends\\",
-        "C:\\Program Files\\Riot Games\\League of Legends\\",
-        "C:\\Program Files (x86)\\Riot Games\\League of Legends\\",
-        "D:\\Riot Games\\League of Legends\\",
-    ];
-
-    for dir in possible_dirs {
-        if std::path::Path::new(dir).exists() {
-            return Some(dir.to_string());
-        }
-    }
-
-    // Check user profile directory for potential custom installations
-    if let Ok(user_profile) = env::var("USERPROFILE") {
-        let custom_dirs = vec![
-            format!("{}\\Games\\Riot Games\\League of Legends\\", user_profile),
-            format!("{}\\Documents\\League of Legends\\", user_profile),
-        ];
-
-        for dir in custom_dirs {
-            if std::path::Path::new(&dir).exists() {
-                return Some(dir);
+    if cfg!(windows) {
+        for drive in ["C", "D", "E", "F"] {
+            let p = PathBuf::from(format!("{}:\\Riot Games\\Riot Client\\RiotClientServices.exe", drive));
+            if p.exists() {
+                return Some(p);
             }
         }
     }
-
     None
 }
 
-/// Get the path to PersistedSettings.json
-pub fn get_persisted_settings_path() -> Option<String> {
-    find_league_install_dir()
-        .map(|install_dir| format!("{}Config\\PersistedSettings.json", install_dir))
-}
-
-/// Make a request to the LCU API
-pub async fn make_lcu_request(
+async fn send(
     credentials: &LcuCredentials,
     method: &str,
     endpoint: &str,
-    body: Option<serde_json::Value>,
-) -> Result<LcuResponse, String> {
-    // Build the client with TLS certificate verification disabled (LCU uses self-signed certs)
-    let client = reqwest::Client::builder()
-        .danger_accept_invalid_certs(true)
-        .build()
-        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
-
-    let url = format!("{}{}", credentials.base_url(), endpoint);
-
-    let mut request = match method.to_uppercase().as_str() {
-        "GET" => client.get(&url),
-        "POST" => client.post(&url),
-        "PUT" => client.put(&url),
-        "PATCH" => client.patch(&url),
-        "DELETE" => client.delete(&url),
-        _ => return Err(format!("Unsupported HTTP method: {}", method)),
+    body: Option<&Value>,
+) -> Result<reqwest::Response, reqwest::Error> {
+    let endpoint = if endpoint.starts_with('/') {
+        endpoint.to_string()
+    } else {
+        format!("/{}", endpoint)
     };
+    let url = format!("{}{}", credentials.base_url(), endpoint);
+    let method = reqwest::Method::from_bytes(method.to_uppercase().as_bytes())
+        .unwrap_or(reqwest::Method::GET);
 
-    request = request.header("Authorization", credentials.auth_header());
+    let mut request = HTTP
+        .request(method, &url)
+        .header("Authorization", credentials.auth_header())
+        .header("Accept", "application/json");
 
     if let Some(json_body) = body {
-        request = request.json(&json_body);
+        request = request.json(json_body);
     }
 
-    let response = request
-        .send()
-        .await
-        .map_err(|e| format!("Request failed: {}", e))?;
+    request.send().await
+}
+
+/// Make a request to the League Client or Riot Client API.
+///
+/// Returns `Err` only when the client cannot be reached. HTTP errors come back as
+/// `Ok(LcuResponse { success: false, status: Some(code), .. })`.
+pub async fn request(
+    target: Target,
+    method: &str,
+    endpoint: &str,
+    body: Option<Value>,
+) -> Result<LcuResponse, String> {
+    let mut credentials = credentials_for(target, false)?;
+
+    let mut response = send(&credentials, method, endpoint, body.as_ref()).await;
+
+    // Client restarted (new port) or token rotated: re-discover once and retry.
+    let stale = match &response {
+        Err(e) => e.is_connect() || e.is_timeout(),
+        Ok(r) => r.status() == reqwest::StatusCode::UNAUTHORIZED,
+    };
+    if stale {
+        invalidate_cache();
+        credentials = credentials_for(target, true)?;
+        response = send(&credentials, method, endpoint, body.as_ref()).await;
+    }
+
+    let response = response.map_err(|e| {
+        invalidate_cache();
+        format!("Could not reach the client: {}", e)
+    })?;
 
     let status = response.status();
-    let response_text = response.text().await.unwrap_or_default();
+    let text = response.text().await.unwrap_or_default();
+    let data = if text.is_empty() {
+        None
+    } else {
+        serde_json::from_str::<Value>(&text).ok()
+    };
 
     if status.is_success() {
-        let data = if !response_text.is_empty() {
-            serde_json::from_str(&response_text).ok()
-        } else {
-            None
-        };
-
         Ok(LcuResponse {
             success: true,
             message: "Request successful".to_string(),
             data,
+            status: Some(status.as_u16()),
         })
     } else {
+        let detail = data
+            .as_ref()
+            .and_then(|d| d["message"].as_str())
+            .map(str::to_string)
+            .unwrap_or(text);
         Ok(LcuResponse {
             success: false,
-            message: format!("Request failed with status {}: {}", status, response_text),
-            data: None,
+            message: format!("Request failed with status {}: {}", status, detail),
+            data,
+            status: Some(status.as_u16()),
         })
     }
 }
 
-/// Get LCU endpoints mapping
-pub fn get_endpoint(name: &str) -> Result<String, String> {
-    match name {
-        "lolChat" => Ok("/lol-chat/v1/me".to_string()),
-        "profile" => Ok("/lol-summoner/v1/current-summoner/summoner-profile".to_string()),
-        "chibiIcon" => Ok("/lol-chat/v1/me".to_string()),
-        "lobby" => Ok("/lol-lobby/v2/lobby".to_string()),
-        "summonerIcon" => Ok("/lol-summoner/v1/current-summoner/icon".to_string()),
-        _ => Err(format!("Unknown endpoint: {}", name)),
+/// League Client request.
+pub async fn lcu(method: &str, endpoint: &str, body: Option<Value>) -> Result<LcuResponse, String> {
+    request(Target::League, method, endpoint, body).await
+}
+
+/// League Client request that turns HTTP errors into `Err`, for chaining steps.
+pub async fn lcu_ok(method: &str, endpoint: &str, body: Option<Value>) -> Result<Value, String> {
+    let response = lcu(method, endpoint, body).await?;
+    if response.success {
+        Ok(response.data.unwrap_or(Value::Null))
+    } else {
+        Err(response.message)
+    }
+}
+
+/// Riot Client request.
+pub async fn riot(method: &str, endpoint: &str, body: Option<Value>) -> Result<LcuResponse, String> {
+    request(Target::RiotClient, method, endpoint, body).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_process_arguments() {
+        let args = vec![
+            "LeagueClientUx.exe".to_string(),
+            "--riotclient-auth-token=abc-123".to_string(),
+            "--riotclient-app-port=50123".to_string(),
+            "--remoting-auth-token=XyZ_9".to_string(),
+            "--app-port=61234".to_string(),
+            "\"--install-directory=D:\\Games\\League of Legends\"".to_string(),
+        ];
+        assert_eq!(arg_value(&args, "--app-port").as_deref(), Some("61234"));
+        assert_eq!(arg_value(&args, "--remoting-auth-token").as_deref(), Some("XyZ_9"));
+        assert_eq!(arg_value(&args, "--riotclient-app-port").as_deref(), Some("50123"));
+        assert_eq!(arg_value(&args, "--riotclient-auth-token").as_deref(), Some("abc-123"));
+        assert_eq!(
+            arg_value(&args, "--install-directory").as_deref(),
+            Some("D:\\Games\\League of Legends")
+        );
+        assert_eq!(arg_value(&args, "--missing"), None);
+    }
+
+    #[test]
+    fn parses_lockfile() {
+        let dir = std::env::temp_dir().join(format!("khaos-lockfile-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("lockfile");
+        std::fs::write(&file, "LeagueClient:1234:61234:s3cr3t:https").unwrap();
+        let creds = parse_lockfile(&file).unwrap();
+        assert_eq!(creds.port, 61234);
+        assert_eq!(creds.token, "s3cr3t");
+        assert_eq!(creds.auth_header(), format!("Basic {}", general_purpose::STANDARD.encode("riot:s3cr3t")));
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn target_parsing() {
+        assert_eq!(Target::from_str(Some("riot")), Target::RiotClient);
+        assert_eq!(Target::from_str(Some("League")), Target::League);
+        assert_eq!(Target::from_str(None), Target::League);
     }
 }

@@ -74,7 +74,10 @@
     try {
       const response = await lcuService.customRequest("GET", "/lol-chat/v1/me");
       if (response.success && response.data) {
-        currentStatus = response.data.availability || "online";
+        currentStatus =
+          response.data.availability === "chat"
+            ? "online"
+            : response.data.availability || "online";
         statusMessage = response.data.statusMessage || "";
 
         // Get challenge points if available

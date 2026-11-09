@@ -3,12 +3,20 @@
  */
 
 import { invoke } from "@tauri-apps/api/tauri";
+import { open } from "@tauri-apps/api/shell";
 
 export interface LcuResponse {
   success: boolean;
   message: string;
   data?: any;
+  /** HTTP status code from the client, when a request was made */
+  status?: number;
 }
+
+/** Which local API a request goes to. "riot" is the Riot Client (/chat/*, /riotclient/*). */
+export type ClientTarget = "league" | "riot";
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export interface ChampMinimal {
   active: boolean;
@@ -188,18 +196,20 @@ class LcuService {
   }
 
   /**
-   * Make a custom LCU API request
+   * Make a custom request to the League Client (default) or the Riot Client API
    */
   async customRequest(
     method: string,
     endpoint: string,
-    body?: any
+    body?: any,
+    target: ClientTarget = "league"
   ): Promise<LcuResponse> {
     try {
       return await invoke<LcuResponse>("custom_lcu_request", {
         method,
         endpoint,
         body,
+        target,
       });
     } catch (error) {
       return {
@@ -240,7 +250,7 @@ class LcuService {
     try {
       return await this.customRequest(
         "POST",
-        "/lol-challenges/v1/update-player-preferences/",
+        "/lol-challenges/v1/update-player-preferences",
         {
           bannerAccent: "2",
         }
@@ -260,7 +270,7 @@ class LcuService {
     try {
       return await this.customRequest(
         "POST",
-        "/lol-challenges/v1/update-player-preferences/",
+        "/lol-challenges/v1/update-player-preferences",
         {
           challengeIds: [-2, -2, -2],
         }
@@ -355,7 +365,7 @@ class LcuService {
 
       return await this.customRequest(
         "POST",
-        "/lol-challenges/v1/update-player-preferences/",
+        "/lol-challenges/v1/update-player-preferences",
         preferences
       );
     } catch (error) {
@@ -431,8 +441,9 @@ class LcuService {
     status: "online" | "away" | "offline" | "mobile"
   ): Promise<LcuResponse> {
     try {
+      // The client calls "online" availability "chat"
       return await this.customRequest("PUT", "/lol-chat/v1/me", {
-        availability: status,
+        availability: status === "online" ? "chat" : status,
       });
     } catch (error) {
       return {
@@ -461,9 +472,8 @@ class LcuService {
    */
   async disconnectChat(): Promise<LcuResponse> {
     try {
-      return await this.customRequest("POST", "/chat/v1/suspend", {
-        config: "disable",
-      });
+      // Riot Client endpoint (not served by the League Client)
+      return await invoke<LcuResponse>("disconnect_chat");
     } catch (error) {
       return {
         success: false,
@@ -477,7 +487,8 @@ class LcuService {
    */
   async reconnectChat(): Promise<LcuResponse> {
     try {
-      return await this.customRequest("POST", "/chat/v1/resume", {});
+      // Riot Client endpoint (not served by the League Client)
+      return await invoke<LcuResponse>("reconnect_chat");
     } catch (error) {
       return {
         success: false,
@@ -521,7 +532,7 @@ class LcuService {
    */
   async getFriendRequests(): Promise<LcuResponse> {
     try {
-      return await this.customRequest("GET", "/lol-chat/v1/friend-requests");
+      return await this.customRequest("GET", "/lol-chat/v2/friend-requests");
     } catch (error) {
       return {
         success: false,
@@ -531,13 +542,35 @@ class LcuService {
   }
 
   /**
-   * Delete a friend by PUUID
+   * Accept an incoming friend request (from /lol-chat/v2/friend-requests)
    */
-  async deleteFriend(puuid: string): Promise<LcuResponse> {
+  async acceptFriendRequest(request: any): Promise<LcuResponse> {
+    // Accepting = setting the request direction to "both"
+    return this.customRequest(
+      "PUT",
+      `/lol-chat/v2/friend-requests/${request.puuid}`,
+      { ...request, direction: "both" }
+    );
+  }
+
+  /**
+   * Decline an incoming friend request
+   */
+  async declineFriendRequest(request: any): Promise<LcuResponse> {
+    return this.customRequest(
+      "DELETE",
+      `/lol-chat/v2/friend-requests/${request.puuid}`
+    );
+  }
+
+  /**
+   * Delete a friend by friend id (falls back to PUUID)
+   */
+  async deleteFriend(id: string): Promise<LcuResponse> {
     try {
       return await this.customRequest(
         "DELETE",
-        `/lol-chat/v1/friends/${puuid}`
+        `/lol-chat/v1/friends/${encodeURIComponent(id)}`
       );
     } catch (error) {
       return {
@@ -562,7 +595,7 @@ class LcuService {
       let failCount = 0;
 
       for (const friend of friends) {
-        const result = await this.deleteFriend(friend.puuid);
+        const result = await this.deleteFriend(friend.id || friend.puuid);
         if (result.success) {
           successCount++;
         } else {
@@ -571,7 +604,7 @@ class LcuService {
 
         // Add delay to avoid rate limiting
         if (delayMs > 0) {
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          await sleep(delayMs);
         }
       }
 
@@ -605,10 +638,7 @@ class LcuService {
       let failCount = 0;
 
       for (const request of requests) {
-        const result = await this.customRequest(
-          "PUT",
-          `/lol-chat/v1/friend-requests/${request.id}/accept`
-        );
+        const result = await this.acceptFriendRequest(request);
 
         if (result.success) {
           successCount++;
@@ -618,7 +648,7 @@ class LcuService {
 
         // Add delay to avoid rate limiting
         if (delayMs > 0) {
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          await sleep(delayMs);
         }
       }
 
@@ -652,10 +682,7 @@ class LcuService {
       let failCount = 0;
 
       for (const request of requests) {
-        const result = await this.customRequest(
-          "DELETE",
-          `/lol-chat/v1/friend-requests/${request.id}`
-        );
+        const result = await this.declineFriendRequest(request);
 
         if (result.success) {
           successCount++;
@@ -665,7 +692,7 @@ class LcuService {
 
         // Add delay to avoid rate limiting
         if (delayMs > 0) {
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          await sleep(delayMs);
         }
       }
 
@@ -704,8 +731,8 @@ class LcuService {
             "/lol-lobby/v2/lobby/invitations",
             [
               {
+                toPuuid: friend.puuid,
                 toSummonerId: friend.summonerId,
-                toSummonerName: friend.name || friend.gameName,
               },
             ]
           );
@@ -718,7 +745,7 @@ class LcuService {
 
           // Add delay to avoid rate limiting
           if (delayMs > 0) {
-            await new Promise((resolve) => setTimeout(resolve, delayMs));
+            await sleep(delayMs);
           }
         }
       }
@@ -748,7 +775,7 @@ class LcuService {
 
       // Simplify the data to include only essential information
       const simplifiedFriends = friendsResponse.data.map((friend: any) => ({
-        name: friend.name || friend.gameName,
+        name: friend.gameName ? `${friend.gameName}#${friend.gameTag}` : friend.name,
         gameName: friend.gameName,
         gameTag: friend.gameTag,
         puuid: friend.puuid,
@@ -771,12 +798,29 @@ class LcuService {
   }
 
   /**
-   * Send friend request
+   * Send a friend request by Riot ID ("Name#TAG", or separate name and tag)
    */
-  async sendFriendRequest(name: string): Promise<LcuResponse> {
+  async sendFriendRequest(
+    gameNameOrRiotId: string,
+    tagLine?: string
+  ): Promise<LcuResponse> {
     try {
-      return await this.customRequest("POST", "/lol-chat/v1/friend-requests", {
-        name,
+      let gameName = gameNameOrRiotId.trim();
+      let tag = tagLine?.trim() ?? "";
+      if (!tag && gameName.includes("#")) {
+        const index = gameName.lastIndexOf("#");
+        tag = gameName.slice(index + 1);
+        gameName = gameName.slice(0, index);
+      }
+      if (!gameName || !tag) {
+        return {
+          success: false,
+          message: `"${gameNameOrRiotId}" is not a Riot ID (expected Name#TAG)`,
+        };
+      }
+      return await this.customRequest("POST", "/lol-chat/v2/friend-requests", {
+        gameName,
+        tagLine: tag,
         direction: "out",
       });
     } catch (error) {
@@ -788,8 +832,9 @@ class LcuService {
   }
 
   /**
-   * Import friends from a list using the same method as Amumus Friends
-   * Checks current summoner data to ensure names are up-to-date
+   * Import friends from an exported list.
+   * Looks each player up by PUUID first so renamed Riot IDs are picked up, then falls
+   * back to the Riot ID stored in the export.
    */
   async importFriends(
     friendsList: any[],
@@ -801,62 +846,44 @@ class LcuService {
 
       for (const friend of friendsList) {
         try {
-          // Use PUUID to get current summoner data (same as Amumus Friends)
+          let gameName: string | undefined = friend.gameName;
+          let tagLine: string | undefined = friend.gameTag ?? friend.tagLine;
+
           if (friend.puuid) {
             const summonerResponse = await this.customRequest(
               "GET",
-              `/lol-summoner/v1/summoners-by-puuid-cached/${friend.puuid}`
+              `/lol-summoner/v2/summoners/puuid/${friend.puuid}`
             );
-            if (summonerResponse.success && summonerResponse.data) {
-              const currentName =
-                summonerResponse.data.internalName ||
-                summonerResponse.data.name;
-
-              // Send friend request with current name
-              const result = await this.sendFriendRequest(currentName);
-              if (result.success) {
-                successCount++;
-              } else {
-                failCount++;
-              }
-            } else {
-              // Fallback to stored name if PUUID lookup fails
-              const name = friend.name || friend.gameName;
-              if (name) {
-                const result = await this.sendFriendRequest(name);
-                if (result.success) {
-                  successCount++;
-                } else {
-                  failCount++;
-                }
-              } else {
-                failCount++;
-              }
-            }
-          } else {
-            // Fallback for old export format without PUUID
-            const name = friend.name || friend.gameName;
-            if (name) {
-              const result = await this.sendFriendRequest(name);
-              if (result.success) {
-                successCount++;
-              } else {
-                failCount++;
-              }
-            } else {
-              failCount++;
+            if (
+              summonerResponse.success &&
+              summonerResponse.data?.gameName &&
+              summonerResponse.data?.tagLine
+            ) {
+              gameName = summonerResponse.data.gameName;
+              tagLine = summonerResponse.data.tagLine;
             }
           }
 
-          // Add delay to avoid rate limiting
+          // Old exports only had a name; accept it when it is already a Riot ID
+          const result =
+            gameName && tagLine
+              ? await this.sendFriendRequest(gameName, tagLine)
+              : await this.sendFriendRequest(String(friend.name ?? ""));
+
+          if (result.success) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+
           if (delayMs > 0) {
-            await new Promise((resolve) => setTimeout(resolve, delayMs));
+            await sleep(delayMs);
           }
         } catch (error) {
           // If individual friend import fails, continue with others
           failCount++;
           console.error(
-            `Failed to import friend ${friend.name || friend.gameName}:`,
+            `Failed to import friend ${friend.gameName || friend.name}:`,
             error
           );
         }
@@ -905,21 +932,6 @@ class LcuService {
   }
 
   /**
-   * Set backup pick champion
-   * @param championId The ID of the backup champion to set
-   */
-  async setBackupPick(championId: number): Promise<LcuResponse> {
-    try {
-      return await invoke<LcuResponse>("set_backup_pick", { championId });
-    } catch (error) {
-      return {
-        success: false,
-        message: String(error),
-      };
-    }
-  }
-
-  /**
    * Get all champions
    */
   async getAllChampions(): Promise<LcuResponse> {
@@ -942,10 +954,7 @@ class LcuService {
    */
   async getChampionMastery(championId: number): Promise<LcuResponse> {
     try {
-      return await this.customRequest(
-        "GET",
-        `/lol-champions/v1/champions/${championId}/mastery`
-      );
+      return await invoke<LcuResponse>("get_champion_mastery", { championId });
     } catch (error) {
       return {
         success: false,
@@ -959,10 +968,7 @@ class LcuService {
    */
   async getAllChampionMasteries(): Promise<LcuResponse> {
     try {
-      return await this.customRequest(
-        "GET",
-        "/lol-champions/v1/champions-mastery"
-      );
+      return await invoke<LcuResponse>("get_all_champion_masteries");
     } catch (error) {
       return {
         success: false,
@@ -976,10 +982,7 @@ class LcuService {
    */
   async getOwnedSkins(): Promise<LcuResponse> {
     try {
-      return await this.customRequest(
-        "GET",
-        "/lol-inventory/v2/inventory/skins"
-      );
+      return await invoke<LcuResponse>("get_owned_skins");
     } catch (error) {
       return {
         success: false,
@@ -993,10 +996,7 @@ class LcuService {
    */
   async getCurrentQueueType(): Promise<LcuResponse> {
     try {
-      return await this.customRequest(
-        "GET",
-        "/lol-gameflow/v1/gameflow-metadata/player-status"
-      );
+      return await invoke<LcuResponse>("get_current_queue_type");
     } catch (error) {
       return {
         success: false,
@@ -1011,23 +1011,9 @@ class LcuService {
    */
   async isQueueAvailable(queueType: QueueType): Promise<LcuResponse> {
     try {
-      const response = await this.customRequest("GET", "/lol-queue/v1/queues");
-      if (!response.success || !response.data) {
-        return response;
-      }
-
-      const availableQueues = response.data;
-      const queueAvailable = availableQueues.some(
-        (queue: any) => queue.id === queueType
-      );
-
-      return {
-        success: true,
-        message: queueAvailable
-          ? "Queue is available"
-          : "Queue is not available",
-        data: queueAvailable,
-      };
+      return await invoke<LcuResponse>("is_queue_available", {
+        queueId: queueType,
+      });
     } catch (error) {
       return {
         success: false,
@@ -1097,17 +1083,18 @@ class LcuService {
 
   /**
    * Multi-search players in champ select
-   * @param website The website to use for multi-search (opgg, ugg, porogg, porofessor)
+   * Only includes players whose Riot IDs the client shows (ranked lobbies hide them).
+   * @param website The website to use for multi-search (opgg, ugg)
    */
   async multiSearch(website: string = "opgg"): Promise<LcuResponse> {
     try {
       const response = await invoke<LcuResponse>("multi_search", { website });
       if (response.success && response.data?.url) {
-        // Open the URL in the default browser
-        window.open(response.data.url, "_blank");
+        // Open the URL in the default browser (window.open does nothing in Tauri)
+        await open(response.data.url);
         return {
           success: true,
-          message: `Opened ${website.toUpperCase()} multi-search`,
+          message: `Opened ${website.toUpperCase()} multi-search: ${response.message}`,
           data: response.data,
         };
       }
@@ -1121,7 +1108,7 @@ class LcuService {
   }
 
   /**
-   * Auto import runes from OP.GG
+   * Import the client's recommended rune page for your champion and role
    */
   async autoImportRunes(): Promise<LcuResponse> {
     try {
@@ -1135,7 +1122,8 @@ class LcuService {
   }
 
   /**
-   * Dodge champ select without closing client
+   * Dodge champ select without closing client.
+   * Uses the LCDS "quitV2" call; the normal dodge penalty still applies.
    */
   async dodgeLobby(): Promise<LcuResponse> {
     try {
@@ -1193,49 +1181,72 @@ class LcuService {
 
   /**
    * Mass disenchant loot by type
-   * @param lootType The type of loot to disenchant (CHAMPION_RENTAL, CHAMPION_SKIN_RENTAL, etc.)
+   * @param lootType Exact loot type (CHAMPION_RENTAL, CHAMPION_SKIN_RENTAL, STATSTONE_SHARD, ...)
    */
   async massDisenchantLoot(lootType: string): Promise<LcuResponse> {
     try {
       const lootResponse = await this.customRequest(
         "GET",
-        "/lol-loot/v1/player-loot-map"
+        "/lol-loot/v1/player-loot"
       );
-      if (!lootResponse.success || !lootResponse.data) {
+      if (!lootResponse.success || !Array.isArray(lootResponse.data)) {
         return lootResponse;
       }
 
-      const lootMap = lootResponse.data;
+      // Exact type match: "CHAMPION" must not also hit CHAMPION_RENTAL or CHAMPION_SKIN
+      const items = lootResponse.data.filter(
+        (loot: any) =>
+          loot.type === lootType &&
+          loot.disenchantRecipeName &&
+          (loot.count ?? 0) > 0
+      );
+      if (items.length === 0) {
+        return {
+          success: true,
+          message: "Nothing to disenchant",
+          data: { disenchantedCount: 0, failedCount: 0 },
+        };
+      }
+
+      // One request for everything
+      const mass = await this.customRequest(
+        "POST",
+        "/lol-loot/v1/craft/mass",
+        items.map((loot: any) => ({
+          recipeName: loot.disenchantRecipeName,
+          lootNames: [loot.lootName ?? loot.lootId],
+          repeat: loot.count,
+        }))
+      );
+      if (mass.success) {
+        const total = items.reduce((sum: number, l: any) => sum + l.count, 0);
+        return {
+          success: true,
+          message: `Disenchanted ${total} items`,
+          data: { disenchantedCount: total, failedCount: 0 },
+        };
+      }
+
+      // Fallback: one recipe call per item
       let disenchantedCount = 0;
       let failedCount = 0;
-
-      for (const lootKey in lootMap) {
-        const loot = lootMap[lootKey];
-
-        if (loot.type && loot.type.startsWith(lootType)) {
-          const disenchantCase =
-            lootType === "STATSTONE_SHARD" ? "DISENCHANT" : "disenchant";
-          const disenchantName = loot.type;
-
-          const result = await this.customRequest(
-            "POST",
-            `/lol-loot/v1/recipes/${disenchantName}_${disenchantCase}/craft?repeat=1`,
-            [lootKey]
-          );
-
-          if (result.success) {
-            disenchantedCount++;
-          } else {
-            failedCount++;
-          }
-
-          // Add small delay to avoid rate limiting
-          await new Promise((resolve) => setTimeout(resolve, 100));
+      for (const loot of items) {
+        const name = loot.lootName ?? loot.lootId;
+        const result = await this.customRequest(
+          "POST",
+          `/lol-loot/v1/recipes/${loot.disenchantRecipeName}/craft?repeat=${loot.count}`,
+          [name]
+        );
+        if (result.success) {
+          disenchantedCount += loot.count;
+        } else {
+          failedCount += loot.count;
         }
+        await sleep(100);
       }
 
       return {
-        success: true,
+        success: failedCount === 0,
         message: `Disenchanted ${disenchantedCount} items. Failed: ${failedCount}`,
         data: { disenchantedCount, failedCount },
       };
@@ -1254,7 +1265,7 @@ class LcuService {
   async setMinimapScale(scale: number): Promise<LcuResponse> {
     try {
       const scaleValue = scale / 33.33;
-      return await this.customRequest(
+      const result = await this.customRequest(
         "PATCH",
         "/lol-game-settings/v1/game-settings",
         {
@@ -1263,6 +1274,11 @@ class LcuService {
           },
         }
       );
+      if (result.success) {
+        // Persist the change to disk
+        await this.customRequest("POST", "/lol-game-settings/v1/save");
+      }
+      return result;
     } catch (error) {
       return {
         success: false,

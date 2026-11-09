@@ -87,7 +87,7 @@
     ) {
       isLoading = true;
       try {
-        const response = await lcuService.deleteFriend(friend.puuid);
+        const response = await lcuService.deleteFriend(friend.id || friend.puuid);
         if (response.success) {
           notifications.success(
             `Successfully deleted ${friend.name || friend.gameName}`,
@@ -140,7 +140,7 @@
         let failCount = 0;
 
         for (const friend of groupFriends) {
-          const response = await lcuService.deleteFriend(friend.puuid);
+          const response = await lcuService.deleteFriend(friend.id || friend.puuid);
           if (response.success) {
             successCount++;
           } else {
@@ -499,9 +499,11 @@
                     </td>
                     <td>
                       <span
-                        class={`badge ${friend.availability === "online" ? "badge-success" : friend.availability === "away" ? "badge-warning" : "badge-neutral"}`}
+                        class={`badge ${friend.availability === "chat" || friend.availability === "online" ? "badge-success" : friend.availability === "away" ? "badge-warning" : "badge-neutral"}`}
                       >
-                        {friend.availability || "offline"}
+                        {friend.availability === "chat"
+                          ? "online"
+                          : friend.availability || "offline"}
                       </span>
                     </td>
                     <td>
@@ -537,19 +539,21 @@
             {#each friendRequests as request}
               <tr>
                 <td>
-                  <div class="font-bold">{request.name}</div>
+                  <div class="font-bold">
+                    {request.gameName
+                      ? `${request.gameName}#${request.tagLine}`
+                      : request.name}
+                  </div>
                 </td>
                 <td class="flex space-x-2">
                   <button
                     class="btn btn-success btn-xs"
                     on:click={async () => {
-                      const response = await lcuService.customRequest(
-                        "PUT",
-                        `/lol-chat/v1/friend-requests/${request.id}/accept`,
-                      );
+                      const response =
+                        await lcuService.acceptFriendRequest(request);
                       if (response.success) {
                         notifications.success(
-                          `Accepted request from ${request.name}`,
+                          `Accepted request from ${request.gameName || request.name}`,
                         );
                         await loadData();
                       } else {
@@ -564,13 +568,11 @@
                   <button
                     class="btn btn-error btn-xs"
                     on:click={async () => {
-                      const response = await lcuService.customRequest(
-                        "DELETE",
-                        `/lol-chat/v1/friend-requests/${request.id}`,
-                      );
+                      const response =
+                        await lcuService.declineFriendRequest(request);
                       if (response.success) {
                         notifications.success(
-                          `Rejected request from ${request.name}`,
+                          `Rejected request from ${request.gameName || request.name}`,
                         );
                         await loadData();
                       } else {
