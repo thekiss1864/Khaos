@@ -63,13 +63,16 @@
   ];
 
   // Multi-search (reactive to store)
-  $: multiSearchWebsite = settings?.multiSearchWebsite ?? "opgg";
   const multiSearchWebsites = [
     { value: "opgg", label: "OP.GG" },
     { value: "ugg", label: "U.GG" },
-    { value: "porogg", label: "PORO.GG" },
-    { value: "porofessor", label: "Porofessor.gg" },
   ];
+  // Older saved settings may point at sites that are no longer supported
+  $: multiSearchWebsite = multiSearchWebsites.some(
+    (s) => s.value === settings?.multiSearchWebsite,
+  )
+    ? settings.multiSearchWebsite
+    : "opgg";
 
   function handlePrimaryRoleChange(e: Event) {
     const target = e.target as HTMLSelectElement;
@@ -269,7 +272,7 @@
     try {
       const response = await lcuService.autoImportRunes();
       if (response.success) {
-        notifications.success("Imported runes from OP.GG successfully!");
+        notifications.success(response.message);
       } else {
         notifications.error(`Failed to import runes: ${response.message}`);
       }
@@ -282,9 +285,7 @@
     try {
       const response = await lcuService.multiSearch(multiSearchWebsite);
       if (response.success) {
-        notifications.success(
-          `Opened ${multiSearchWebsite.toUpperCase()} multi-search`
-        );
+        notifications.success(response.message);
       } else {
         notifications.error(`Failed to open multi-search: ${response.message}`);
       }
@@ -348,7 +349,7 @@
     <button class="btn btn-primary" on:click={startQueue}> Start Queue </button>
     <button class="btn btn-warning" on:click={dodgeLobby}> Dodge Lobby </button>
     <button class="btn btn-info" on:click={importRunes}>
-      Import Runes (OP.GG)
+      Import Recommended Runes
     </button>
     <button class="btn btn-accent" on:click={checkSide}> Check Side </button>
   </div>

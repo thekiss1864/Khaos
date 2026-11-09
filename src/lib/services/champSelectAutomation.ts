@@ -5,17 +5,70 @@ import {
   type ChampSelectSettings,
 } from "$lib/stores/champSelect";
 
+const CHAMP_SELECT_POLL_MS = 500;
+const READY_CHECK_POLL_MS = 500;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+type Action = {
+  id: number;
+  actorCellId: number;
+  championId: number;
+  completed: boolean;
+  isInProgress: boolean;
+  type: string;
+};
+
+function allActions(session: any): Action[] {
+  return Array.isArray(session?.actions)
+    ? (session.actions.flat().filter(Boolean) as Action[])
+    : [];
+}
+
+/** My action of this type that the client is currently waiting on */
+function myActiveAction(session: any, type: "pick" | "ban"): Action | undefined {
+  return allActions(session).find(
+    (a) =>
+      a.actorCellId === session.localPlayerCellId &&
+      a.type === type &&
+      !a.completed &&
+      a.isInProgress
+  );
+}
+
+/** Champions that are banned or already locked by someone else */
+function unavailableChampions(session: any): Set<number> {
+  const ids = new Set<number>();
+  // session.bans is { myTeamBans: number[], theirTeamBans: number[] }
+  for (const id of session?.bans?.myTeamBans ?? []) ids.add(id);
+  for (const id of session?.bans?.theirTeamBans ?? []) ids.add(id);
+  for (const a of allActions(session)) {
+    if (!a.completed || !a.championId) continue;
+    if (a.type === "ban") ids.add(a.championId);
+    if (a.type === "pick" && a.actorCellId !== session.localPlayerCellId) {
+      ids.add(a.championId);
+    }
+  }
+  return ids;
+}
+
 class ChampSelectAutomation {
-  private champSelectInterval: number | null = null;
-  private autoAcceptInterval: number | null = null;
+  private champSelectTimer: number | null = null;
+  private autoAcceptTimer: number | null = null;
+  private champSelectRunning = false;
+  private autoAcceptRunning = false;
   private isInChampSelect = false;
   private currentSettings: ChampSelectSettings | null = null;
   private unsubscribe: (() => void) | null = null;
 
+  // Per champ select bookkeeping so each action is handled once
+  private handledActions = new Set<number>();
+  private pendingAction: number | null = null;
+  private dodged = false;
+
   constructor() {
-    // Subscribe to store changes to react to setting updates
+    // React to setting updates
     this.unsubscribe = champSelectStore.subscribe((settings) => {
-      console.log("ChampSelectAutomation: Store updated", settings);
       this.currentSettings = settings;
       this.updateAutomationState();
     });
@@ -24,27 +77,19 @@ class ChampSelectAutomation {
   private updateAutomationState() {
     if (!this.currentSettings) return;
 
-    console.log(
-      "ChampSelectAutomation: updateAutomationState called, autoAcceptEnabled:",
-      this.currentSettings.autoAcceptEnabled
-    );
-
-    // Start/stop auto-accept based on setting
     if (this.currentSettings.autoAcceptEnabled) {
-      console.log("ChampSelectAutomation: Starting auto-accept monitoring");
       this.startAutoAcceptMonitoring();
     } else {
-      console.log("ChampSelectAutomation: Stopping auto-accept monitoring");
       this.stopAutoAcceptMonitoring();
     }
 
-    // Start/stop champ select monitoring (always needed for instalock/ban)
     if (
       this.currentSettings.instalockEnabled ||
       this.currentSettings.autoBanEnabled ||
       this.currentSettings.instantMuteEnabled ||
       this.currentSettings.blueSideNotification ||
-      this.currentSettings.instantMessageEnabled
+      this.currentSettings.instantMessageEnabled ||
+      this.currentSettings.dodgeOnBan
     ) {
       this.startChampSelectMonitoring();
     } else {
@@ -52,374 +97,235 @@ class ChampSelectAutomation {
     }
   }
 
-  private startChampSelectMonitoring() {
-    if (this.champSelectInterval !== null) return;
+  // ---------- Champ select ----------
 
-    this.champSelectInterval = window.setInterval(async () => {
+  private startChampSelectMonitoring() {
+    if (this.champSelectRunning) return;
+    this.champSelectRunning = true;
+
+    const tick = async () => {
+      if (!this.champSelectRunning) return;
       try {
         const session = await lcuService.getChampSelectSession();
-        if (session.success && !this.isInChampSelect) {
-          // Just entered champ select
-          this.isInChampSelect = true;
-          this.onChampSelectStart();
-        } else if (!session.success && this.isInChampSelect) {
-          // Left champ select
+        if (session.success && session.data) {
+          if (!this.isInChampSelect) {
+            this.isInChampSelect = true;
+            this.resetChampSelectState();
+            await this.onChampSelectStart();
+          }
+          await this.handleSession(session.data);
+        } else if (this.isInChampSelect) {
           this.isInChampSelect = false;
           this.onChampSelectEnd();
         }
-      } catch (error) {
+      } catch {
         if (this.isInChampSelect) {
           this.isInChampSelect = false;
           this.onChampSelectEnd();
         }
       }
-    }, 1000);
+      if (this.champSelectRunning) {
+        // Schedule the next poll only after this one finished, so polls never overlap
+        this.champSelectTimer = window.setTimeout(tick, CHAMP_SELECT_POLL_MS);
+      }
+    };
+    tick();
   }
 
   private stopChampSelectMonitoring() {
-    if (this.champSelectInterval) {
-      clearInterval(this.champSelectInterval);
-      this.champSelectInterval = null;
+    this.champSelectRunning = false;
+    if (this.champSelectTimer !== null) {
+      clearTimeout(this.champSelectTimer);
+      this.champSelectTimer = null;
     }
     this.isInChampSelect = false;
   }
 
-  private startAutoAcceptMonitoring() {
-    if (this.autoAcceptInterval !== null) {
-      console.log(
-        "ChampSelectAutomation: Auto-accept monitoring already running"
-      );
-      return;
-    }
-
-    console.log(
-      "ChampSelectAutomation: Starting auto-accept monitoring interval"
-    );
-    this.autoAcceptInterval = window.setInterval(async () => {
-      try {
-        if (!this.currentSettings?.autoAcceptEnabled) {
-          console.log(
-            "ChampSelectAutomation: Auto-accept disabled, skipping check"
-          );
-          return;
-        }
-
-        // Check for ready check directly
-        const readyCheckResponse = await lcuService.customRequest(
-          "GET",
-          "/lol-matchmaking/v1/ready-check"
-        );
-
-        if (readyCheckResponse.success && readyCheckResponse.data) {
-          const readyCheck = readyCheckResponse.data;
-          console.log("ChampSelectAutomation: Ready check data:", readyCheck);
-
-          // If there's an active ready check and it hasn't been accepted yet
-          if (readyCheck.state === "InProgress" && !readyCheck.playerResponse) {
-            console.log(
-              "ChampSelectAutomation: Found active ready check, auto-accepting"
-            );
-            const response = await lcuService.autoAccept(true);
-            if (response.success) {
-              notifications.success("Auto-accepted matchmaking!");
-            } else if (
-              response.message &&
-              response.message.includes("already accepted")
-            ) {
-              notifications.info("Match already accepted");
-            } else {
-              console.error(
-                "ChampSelectAutomation: Auto-accept failed:",
-                response.message
-              );
-            }
-          }
-        }
-      } catch (error) {
-        // Silently continue monitoring - don't spam notifications
-      }
-    }, 100); // Check every 100ms for more responsive auto accepting
-  }
-
-  private stopAutoAcceptMonitoring() {
-    if (this.autoAcceptInterval) {
-      clearInterval(this.autoAcceptInterval);
-      this.autoAcceptInterval = null;
-    }
+  private resetChampSelectState() {
+    this.handledActions.clear();
+    this.pendingAction = null;
+    this.dodged = false;
   }
 
   private async onChampSelectStart() {
-    if (!this.currentSettings) {
-      console.log(
-        "ChampSelectAutomation: onChampSelectStart called but no current settings"
-      );
-      return;
-    }
-
-    console.log(
-      "ChampSelectAutomation: onChampSelectStart - checking features:",
-      {
-        blueSideNotification: this.currentSettings.blueSideNotification,
-        instantMuteEnabled: this.currentSettings.instantMuteEnabled,
-        instantMessageEnabled: this.currentSettings.instantMessageEnabled,
-        autoBanEnabled: this.currentSettings.autoBanEnabled,
-        instalockEnabled: this.currentSettings.instalockEnabled,
-      }
-    );
+    const settings = this.currentSettings;
+    if (!settings) return;
 
     notifications.info("Entered champion select");
 
-    // Execute enabled features
-    if (this.currentSettings.blueSideNotification) {
-      console.log("ChampSelectAutomation: Executing blue side notification");
+    if (settings.blueSideNotification) {
       await this.checkSide();
     }
 
-    if (this.currentSettings.instantMuteEnabled) {
-      console.log("ChampSelectAutomation: Executing instant mute");
-      try {
-        const response = await lcuService.instantMuteAll();
-        if (response.success) {
-          notifications.success("Muted all players");
-        }
-      } catch (error) {
-        notifications.error("Failed to mute players");
+    if (settings.instantMuteEnabled) {
+      const response = await lcuService.instantMuteAll();
+      if (response.success) {
+        notifications.success(response.message || "Muted all players");
+      } else {
+        notifications.error(`Failed to mute players: ${response.message}`);
       }
     }
 
-    if (
-      this.currentSettings.instantMessageEnabled &&
-      this.currentSettings.instantMessageText.trim()
-    ) {
-      console.log(
-        "ChampSelectAutomation: Scheduling instant message, text:",
-        this.currentSettings.instantMessageText,
-        "delay:",
-        this.currentSettings.instantMessageDelay
-      );
+    if (settings.instantMessageEnabled && settings.instantMessageText.trim()) {
       setTimeout(async () => {
-        try {
-          const response = await lcuService.sendInstantMessage(
-            this.currentSettings!.instantMessageText,
-            this.currentSettings!.instantMessageTimes,
-            this.currentSettings!.instantMessageDelayBetween
-          );
-          if (response.success) {
-            notifications.success("Sent instant message");
-          }
-        } catch (error) {
-          notifications.error("Failed to send instant message");
+        const response = await lcuService.sendInstantMessage(
+          settings.instantMessageText,
+          settings.instantMessageTimes,
+          settings.instantMessageDelayBetween
+        );
+        if (response.success) {
+          notifications.success("Sent instant message");
+        } else {
+          notifications.error(`Failed to send message: ${response.message}`);
         }
-      }, this.currentSettings.instantMessageDelay);
-    }
-
-    // Auto-ban monitoring
-    if (
-      this.currentSettings.autoBanEnabled &&
-      this.currentSettings.selectedBanChampion
-    ) {
-      console.log("ChampSelectAutomation: Starting auto-ban monitoring");
-      this.monitorForBan();
-    }
-
-    // Instalock monitoring
-    if (
-      this.currentSettings.instalockEnabled &&
-      this.currentSettings.selectedChampion
-    ) {
-      console.log("ChampSelectAutomation: Starting instalock monitoring");
-      this.monitorForPick();
+      }, settings.instantMessageDelay);
     }
   }
 
-  private async onChampSelectEnd() {
+  private onChampSelectEnd() {
+    this.resetChampSelectState();
     notifications.info("Left champion select");
   }
 
-  private async monitorForPick() {
-    if (!this.currentSettings) {
-      console.log(
-        "ChampSelectAutomation: monitorForPick called but no current settings"
-      );
-      return;
+  private async handleSession(session: any) {
+    const settings = this.currentSettings;
+    if (!settings || this.pendingAction !== null || this.dodged) return;
+
+    // Auto-ban
+    if (settings.autoBanEnabled && settings.selectedBanChampion) {
+      const ban = myActiveAction(session, "ban");
+      if (ban && !this.handledActions.has(ban.id)) {
+        await this.runAction(ban.id, settings.autoBanDelay, async () => {
+          const response = await lcuService.autoBan(
+            parseInt(settings.selectedBanChampion!)
+          );
+          if (response.success) {
+            notifications.success("Champion auto-banned!");
+          } else {
+            notifications.error(`Auto-ban failed: ${response.message}`);
+          }
+        });
+        return;
+      }
     }
 
-    console.log(
-      "ChampSelectAutomation: Starting instalock monitoring, selectedChampion:",
-      this.currentSettings.selectedChampion
-    );
-    let attempts = 0;
-    const maxAttempts = 240; // 2 minutes (240 * 500ms)
-    const pickInterval = setInterval(async () => {
-      try {
-        const sessionResponse = await lcuService.getChampSelectSession();
-        if (!sessionResponse.success) {
-          console.log("Instalock: Failed to get champ select session");
-          clearInterval(pickInterval);
-          return;
+    const pick = myActiveAction(session, "pick");
+    const main = settings.selectedChampion
+      ? parseInt(settings.selectedChampion)
+      : null;
+
+    // Dodge when the main champion got banned/taken and there is no usable backup
+    if (settings.dodgeOnBan && main !== null) {
+      const unavailable = unavailableChampions(session);
+      const backup =
+        settings.backupPickEnabled && settings.selectedBackupChampion
+          ? parseInt(settings.selectedBackupChampion)
+          : null;
+      const backupUsable = backup !== null && !unavailable.has(backup);
+      if (unavailable.has(main) && !backupUsable) {
+        this.dodged = true;
+        const response = await lcuService.dodgeLobby();
+        if (response.success) {
+          notifications.warning("Main champion unavailable, dodged lobby");
+        } else {
+          notifications.error(`Dodge failed: ${response.message}`);
         }
+        return;
+      }
+    }
 
-        const session = sessionResponse.data;
-        const localPlayerCellId = session.localPlayerCellId;
-        const actions = session.actions;
+    // Instalock
+    if (settings.instalockEnabled && main !== null && pick) {
+      if (this.handledActions.has(pick.id)) return;
+      await this.runAction(pick.id, settings.instalockDelay, async () => {
+        // Re-read the session after the delay so bans/picks are up to date
+        const fresh = await lcuService.getChampSelectSession();
+        const unavailable = unavailableChampions(fresh.data ?? session);
 
-        console.log(
-          `Instalock attempt ${attempts + 1}: Found ${
-            actions.length
-          } action groups`
-        );
-
-        // Check if we're in the pick phase
-        let pickPhase = false;
-        for (const actionGroup of actions) {
-          for (const action of actionGroup) {
-            if (
-              action.type === "pick" &&
-              action.actorCellId === localPlayerCellId
-            ) {
-              pickPhase = true;
-              console.log(
-                `Instalock: Found pick action for local player, completed: ${action.completed}`
-              );
-              if (!action.completed) {
-                // Delay before picking
-                console.log(
-                  `Instalock: Waiting ${
-                    this.currentSettings!.instalockDelay
-                  }ms before picking`
-                );
-                await new Promise((resolve) =>
-                  setTimeout(resolve, this.currentSettings!.instalockDelay)
-                );
-
-                // Determine which champion to pick (main or backup)
-                let championToPick = parseInt(
-                  this.currentSettings!.selectedChampion!
-                );
-
-                // If backup pick is enabled, check if main champion is available
-                if (
-                  this.currentSettings!.backupPickEnabled &&
-                  this.currentSettings!.selectedBackupChampion
-                ) {
-                  // Check if main champion is banned or picked
-                  const isMainBanned =
-                    Array.isArray(session.bans) &&
-                    session.bans.some(
-                      (ban: any) =>
-                        ban?.championId ===
-                        parseInt(this.currentSettings!.selectedChampion!)
-                    );
-                  const isMainPicked =
-                    Array.isArray(session.actions) &&
-                    session.actions.some(
-                      (actionGroup: any) =>
-                        Array.isArray(actionGroup) &&
-                        actionGroup.some(
-                          (action: any) =>
-                            action?.type === "pick" &&
-                            action?.championId ===
-                              parseInt(
-                                this.currentSettings!.selectedChampion!
-                              ) &&
-                            action?.completed
-                        )
-                    );
-
-                  if (isMainBanned || isMainPicked) {
-                    console.log(
-                      "Instalock: Main champion not available, using backup"
-                    );
-                    championToPick = parseInt(
-                      this.currentSettings!.selectedBackupChampion
-                    );
-                  }
-                }
-
-                console.log(
-                  `Instalock: Attempting to pick champion ID ${championToPick}`
-                );
-
-                const response = await lcuService.instalock(championToPick);
-
-                if (response.success) {
-                  notifications.success("Champion instalocked!");
-                  console.log("Instalock: Successfully locked champion");
-                  clearInterval(pickInterval);
-                  return;
-                } else {
-                  console.error(
-                    "Instalock: Failed to lock champion:",
-                    response.message
-                  );
-                  notifications.error(`Instalock failed: ${response.message}`);
-                }
-              }
-            }
+        let championToPick = main;
+        if (unavailable.has(main)) {
+          const backup =
+            settings.backupPickEnabled && settings.selectedBackupChampion
+              ? parseInt(settings.selectedBackupChampion)
+              : null;
+          if (backup === null || unavailable.has(backup)) {
+            notifications.warning(
+              "Instalock skipped: your champion is banned or taken"
+            );
+            return;
           }
+          championToPick = backup;
+          notifications.info("Main champion unavailable, using backup pick");
         }
 
-        if (!pickPhase) {
-          console.log(
-            "Instalock: Not in pick phase yet, continuing to monitor"
-          );
+        const response = await lcuService.instalock(championToPick);
+        if (response.success) {
+          notifications.success("Champion instalocked!");
+        } else {
+          notifications.error(`Instalock failed: ${response.message}`);
         }
-      } catch (error) {
-        // Periodic logging of failed attempts
-        if (attempts % 10 === 0) {
-          console.error(`Instalock attempt ${attempts + 1} failed:`, error);
-          notifications.warning(`Instalock attempt failed: ${error}`);
-        }
-      }
-
-      // Stop after max attempts
-      attempts++;
-      if (attempts >= maxAttempts) {
-        console.error("Instalock: Timed out after 2 minutes");
-        notifications.error("Instalock timed out");
-        clearInterval(pickInterval);
-      }
-    }, 500);
-
-    // Stop monitoring after 2 minutes
-    setTimeout(() => {
-      console.log("Instalock: Stopping monitoring after 2 minutes timeout");
-      clearInterval(pickInterval);
-    }, 120000);
+      });
+    }
   }
 
-  private async monitorForBan() {
-    if (!this.currentSettings) {
-      console.log(
-        "ChampSelectAutomation: monitorForBan called but no current settings"
-      );
-      return;
+  /** Run a pick/ban once per action id, after an optional delay */
+  private async runAction(
+    actionId: number,
+    delay: number,
+    run: () => Promise<void>
+  ) {
+    this.handledActions.add(actionId);
+    this.pendingAction = actionId;
+    try {
+      if (delay > 0) await sleep(delay);
+      if (this.isInChampSelect) await run();
+    } finally {
+      this.pendingAction = null;
     }
+  }
 
-    console.log(
-      "ChampSelectAutomation: Starting auto-ban monitoring, selectedBanChampion:",
-      this.currentSettings.selectedBanChampion
-    );
-    const banInterval = setInterval(async () => {
+  // ---------- Ready check ----------
+
+  private startAutoAcceptMonitoring() {
+    if (this.autoAcceptRunning) return;
+    this.autoAcceptRunning = true;
+
+    const tick = async () => {
+      if (!this.autoAcceptRunning) return;
       try {
-        if (this.currentSettings!.selectedBanChampion) {
-          setTimeout(async () => {
-            const response = await lcuService.autoBan(
-              parseInt(this.currentSettings!.selectedBanChampion!),
-              this.currentSettings!.autoBanDelay
-            );
-            if (response.success) {
-              notifications.success("Champion auto-banned!");
-            }
-          }, this.currentSettings!.autoBanDelay);
-        }
-      } catch (error) {
-        // Keep trying
-      }
-    }, 1000);
+        const response = await lcuService.customRequest(
+          "GET",
+          "/lol-matchmaking/v1/ready-check"
+        );
+        const readyCheck = response.success ? response.data : null;
 
-    // Stop monitoring after 2 minutes
-    setTimeout(() => clearInterval(banInterval), 120000);
+        // playerResponse is "None" until you accept or decline
+        if (
+          readyCheck?.state === "InProgress" &&
+          readyCheck.playerResponse === "None"
+        ) {
+          const accepted = await lcuService.autoAccept(true);
+          if (accepted.success) {
+            // playerResponse flips to "Accepted", so this fires once per ready check
+            notifications.success("Auto-accepted matchmaking!");
+          }
+        }
+      } catch {
+        // Not in queue or client closed; keep polling quietly
+      }
+      if (this.autoAcceptRunning) {
+        this.autoAcceptTimer = window.setTimeout(tick, READY_CHECK_POLL_MS);
+      }
+    };
+    tick();
+  }
+
+  private stopAutoAcceptMonitoring() {
+    this.autoAcceptRunning = false;
+    if (this.autoAcceptTimer !== null) {
+      clearTimeout(this.autoAcceptTimer);
+      this.autoAcceptTimer = null;
+    }
   }
 
   private async checkSide() {
@@ -438,7 +344,6 @@ class ChampSelectAutomation {
 
   // Public methods for manual control
   public start() {
-    console.log("ChampSelectAutomation: start() called");
     this.updateAutomationState();
   }
 
@@ -447,7 +352,6 @@ class ChampSelectAutomation {
     this.stopAutoAcceptMonitoring();
   }
 
-  // Cleanup method
   public destroy() {
     this.stop();
     if (this.unsubscribe) {

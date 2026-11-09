@@ -285,8 +285,6 @@ Khaos/
 │   ├── main.ts                  # TypeScript entry point
 │   ├── app.css                  # Global styles (Tailwind)
 │   └── vite-env.d.ts            # Vite type definitions
-├── source-codes/                # Reference implementations
-│   └── league-profile-tool-master/  # Original Angular app
 ├── FEATURES.md                  # Detailed feature documentation
 ├── index.html                   # HTML entry
 ├── package.json                 # Node dependencies
@@ -494,6 +492,17 @@ When reporting bugs, please include:
 - **Svelte Team** for the reactive UI framework
 - **DaisyUI & Tailwind CSS** for the beautiful component system
 - **Open source community** for the tools and libraries used
+
+### Prior art
+
+Khaos is an independent implementation. Several features were inspired by these projects
+(no code from them is included in this repository):
+
+- [KBotExt](https://github.com/KebsCS/KBotExt) by KebsCS: champ select automation, loot and client tools
+- [lcu-and-riotclient-api](https://github.com/KebsCS/lcu-and-riotclient-api): LCU / Riot Client endpoint reference
+- [league-profile-tool](https://github.com/MManoah/league-profile-tool): profile customization ideas and summoner icon assets
+- [Amumus Friends](https://github.com/rico-vz/Amumus-Friends): friend list export/import idea
+- [Deceive](https://github.com/molenzwiebel/Deceive): appear-offline idea (Khaos uses the LCU availability API instead)
 
 ## Project Status
 

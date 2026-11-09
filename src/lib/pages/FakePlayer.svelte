@@ -17,7 +17,10 @@
                 "/lol-chat/v1/me",
             );
             if (statusResponse.success && statusResponse.data?.availability) {
-                currentStatus = statusResponse.data.availability;
+                currentStatus =
+                    statusResponse.data.availability === "chat"
+                        ? "online"
+                        : statusResponse.data.availability;
             }
         }
     }
