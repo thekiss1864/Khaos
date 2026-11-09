@@ -94,6 +94,12 @@ struct ClientInfo {
     league: Option<LcuCredentials>,
     riot: Option<LcuCredentials>,
     install_dir: Option<PathBuf>,
+    /// A `LeagueClientUx` process is running.
+    ux_running: bool,
+    /// Its command line could be read (fails when League runs with higher privileges).
+    ux_args_read: bool,
+    /// Existing folders that were checked for a lockfile, for error messages.
+    checked_dirs: Vec<PathBuf>,
 }
 
 lazy_static! {
@@ -114,6 +120,85 @@ fn arg_value(args: &[String], key: &str) -> Option<String> {
     args.iter()
         .find_map(|a| a.trim_matches('"').strip_prefix(&prefix).map(|v| v.trim_matches('"').to_string()))
         .filter(|v| !v.is_empty())
+}
+
+/// Reads `--key=value` from a raw Windows command line string.
+fn arg_from_cmdline(cmdline: &str, key: &str) -> Option<String> {
+    let needle = format!("{}=", key);
+    let start = cmdline.find(&needle)?;
+    let quoted = start > 0 && cmdline.as_bytes()[start - 1] == b'"';
+    let rest = &cmdline[start + needle.len()..];
+    let end = if quoted {
+        rest.find('"').unwrap_or(rest.len())
+    } else {
+        rest.find(|c: char| c.is_whitespace() || c == '"').unwrap_or(rest.len())
+    };
+    let value = rest[..end].trim();
+    if value.is_empty() {
+        None
+    } else {
+        Some(value.to_string())
+    }
+}
+
+/// Fallback for when the process can't be inspected directly: ask WMI for the
+/// League client's command line. Only runs when a client is known to be running.
+#[cfg(windows)]
+fn league_cmdline_from_wmi() -> Option<(String, Option<String>)> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let output = std::process::Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "Get-CimInstance Win32_Process -Filter \"Name='LeagueClientUx.exe'\" | Select-Object CommandLine,ExecutablePath | ConvertTo-Json -Compress",
+        ])
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+        .ok()?;
+    let json: Value = serde_json::from_slice(&output.stdout).ok()?;
+    let entries = match json {
+        Value::Array(list) => list,
+        other => vec![other],
+    };
+    entries.into_iter().find_map(|e| {
+        let cmdline = e["CommandLine"].as_str()?.to_string();
+        Some((cmdline, e["ExecutablePath"].as_str().map(str::to_string)))
+    })
+}
+
+#[cfg(not(windows))]
+fn league_cmdline_from_wmi() -> Option<(String, Option<String>)> {
+    None
+}
+
+/// League install folders known to the Riot Client (`associated_client` in RiotClientInstalls.json).
+fn install_dirs_from_riot_client_installs() -> Vec<PathBuf> {
+    let mut files: Vec<PathBuf> = Vec::new();
+    if let Ok(program_data) = std::env::var("PROGRAMDATA") {
+        files.push(PathBuf::from(program_data).join("Riot Games/RiotClientInstalls.json"));
+    }
+    files.push(PathBuf::from("/Users/Shared/Riot Games/RiotClientInstalls.json"));
+
+    let mut dirs = Vec::new();
+    for file in files {
+        let Ok(content) = std::fs::read_to_string(&file) else {
+            continue;
+        };
+        let Ok(json) = serde_json::from_str::<Value>(&content) else {
+            continue;
+        };
+        if let Some(map) = json["associated_client"].as_object() {
+            for key in map.keys() {
+                let lower = key.to_ascii_lowercase();
+                if lower.contains("league") {
+                    dirs.push(PathBuf::from(key.trim_end_matches(['/', '\\'])));
+                }
+            }
+        }
+    }
+    dirs
 }
 
 fn parse_lockfile(path: &Path) -> Option<LcuCredentials> {
@@ -240,12 +325,16 @@ fn discover() -> ClientInfo {
         }
 
         if is_ux {
+            info.ux_running = true;
             let args: Vec<String> = process
                 .cmd()
                 .iter()
                 .map(|a| a.to_string_lossy().into_owned())
                 .collect();
 
+            if args.len() > 1 {
+                info.ux_args_read = true;
+            }
             if info.league.is_none() {
                 if let (Some(port), Some(token)) = (
                     arg_value(&args, "--app-port").and_then(|p| p.parse::<u16>().ok()),
@@ -272,6 +361,33 @@ fn discover() -> ClientInfo {
         }
     }
 
+    // The process exists but couldn't be inspected: try WMI before falling back to files.
+    if info.ux_running && info.league.is_none() {
+        if let Some((cmdline, exe)) = league_cmdline_from_wmi() {
+            info.ux_args_read = true;
+            if let (Some(port), Some(token)) = (
+                arg_from_cmdline(&cmdline, "--app-port").and_then(|p| p.parse::<u16>().ok()),
+                arg_from_cmdline(&cmdline, "--remoting-auth-token"),
+            ) {
+                info.league = Some(LcuCredentials { port, token });
+            }
+            if info.riot.is_none() {
+                if let (Some(port), Some(token)) = (
+                    arg_from_cmdline(&cmdline, "--riotclient-app-port").and_then(|p| p.parse::<u16>().ok()),
+                    arg_from_cmdline(&cmdline, "--riotclient-auth-token"),
+                ) {
+                    info.riot = Some(LcuCredentials { port, token });
+                }
+            }
+            if info.install_dir.is_none() {
+                info.install_dir = arg_from_cmdline(&cmdline, "--install-directory").map(PathBuf::from);
+            }
+            if process_dir.is_none() {
+                process_dir = exe.as_deref().map(Path::new).and_then(Path::parent).map(Path::to_path_buf);
+            }
+        }
+    }
+
     // Install directory: process args > process path > Riot metadata > registry > common paths.
     if info.install_dir.is_none() {
         let mut candidates: Vec<PathBuf> = Vec::new();
@@ -284,8 +400,17 @@ fn discover() -> ClientInfo {
             }
         }
         candidates.extend(install_dir_from_product_settings());
+        candidates.extend(install_dirs_from_riot_client_installs());
         candidates.extend(install_dir_from_registry());
         candidates.extend(common_install_dirs());
+
+        let mut seen: Vec<PathBuf> = Vec::new();
+        for d in &candidates {
+            if d.is_dir() && !seen.contains(d) && d.parent().is_some() {
+                seen.push(d.clone());
+            }
+        }
+        info.checked_dirs = seen;
 
         info.install_dir = candidates
             .iter()
@@ -333,13 +458,39 @@ fn invalidate_cache() {
 fn credentials_for(target: Target, force_refresh: bool) -> Result<LcuCredentials, String> {
     let info = cached_info(force_refresh);
     match target {
-        Target::League => info.league.ok_or_else(|| {
-            "League client not found. Start League of Legends and log in, then try again.".to_string()
-        }),
+        Target::League => info.league.clone().ok_or_else(|| league_not_found_message(&info)),
         Target::RiotClient => info.riot.ok_or_else(|| {
             "Riot Client not found. Start League of Legends through the Riot Client, then try again."
                 .to_string()
         }),
+    }
+}
+
+fn league_not_found_message(info: &ClientInfo) -> String {
+    let checked = if info.checked_dirs.is_empty() {
+        "no League folder found".to_string()
+    } else {
+        info.checked_dirs
+            .iter()
+            .map(|d| d.to_string_lossy().into_owned())
+            .collect::<Vec<_>>()
+            .join("; ")
+    };
+    if !info.ux_running {
+        format!(
+            "League client is not running. Start League of Legends and log in, then try again. (No LeagueClientUx process found; looked for a lockfile in: {})",
+            checked
+        )
+    } else if !info.ux_args_read {
+        format!(
+            "League is running, but Windows won't let Khaos read its connection details. This happens when League or the Riot Client runs as administrator: close Khaos and start it with \"Run as administrator\". (Looked for a lockfile in: {})",
+            checked
+        )
+    } else {
+        format!(
+            "League is running but hasn't opened its API yet. Wait until you're fully logged in, then try again. (Looked for a lockfile in: {})",
+            checked
+        )
     }
 }
 
@@ -545,6 +696,30 @@ mod tests {
         assert_eq!(creds.token, "s3cr3t");
         assert_eq!(creds.auth_header(), format!("Basic {}", general_purpose::STANDARD.encode("riot:s3cr3t")));
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn parses_raw_command_line() {
+        let cmdline = r#""C:/Riot Games/League of Legends/LeagueClientUx.exe" "--riotclient-auth-token=abc-123" "--riotclient-app-port=50123" "--remoting-auth-token=XyZ_9" "--app-port=61234" "--install-directory=D:/Games/League of Legends" --no-rads"#;
+        assert_eq!(arg_from_cmdline(cmdline, "--app-port").as_deref(), Some("61234"));
+        assert_eq!(arg_from_cmdline(cmdline, "--remoting-auth-token").as_deref(), Some("XyZ_9"));
+        assert_eq!(arg_from_cmdline(cmdline, "--riotclient-app-port").as_deref(), Some("50123"));
+        assert_eq!(
+            arg_from_cmdline(cmdline, "--install-directory").as_deref(),
+            Some("D:/Games/League of Legends")
+        );
+        let unquoted = "LeagueClientUx.exe --app-port=5000 --remoting-auth-token=t0k";
+        assert_eq!(arg_from_cmdline(unquoted, "--app-port").as_deref(), Some("5000"));
+        assert_eq!(arg_from_cmdline(unquoted, "--remoting-auth-token").as_deref(), Some("t0k"));
+        assert_eq!(arg_from_cmdline(unquoted, "--missing"), None);
+    }
+
+    #[test]
+    fn not_found_message_explains_cause() {
+        let info = ClientInfo { ux_running: true, ux_args_read: false, ..Default::default() };
+        assert!(league_not_found_message(&info).contains("administrator"));
+        let info = ClientInfo::default();
+        assert!(league_not_found_message(&info).contains("not running"));
     }
 
     #[test]
