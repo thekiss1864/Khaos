@@ -393,14 +393,6 @@
             d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           ></path>
         </svg>
-        <div>
-          <h3 class="font-bold">Chat Connection</h3>
-          <div class="text-xs">
-            Disconnect from or reconnect to the League chat service
-          </div>
-        </div>
-      </div>
-
       <div class="flex flex-wrap gap-2">
         <button
           class="btn btn-error flex-1"

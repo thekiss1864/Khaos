@@ -25,35 +25,43 @@ A modern desktop application built with **Tauri**, **Svelte**, **TypeScript**, a
 <!-- ![Profile Customization](screenshots/profile-customization.png) -->
 <!-- ![Champion Select Automation](screenshots/champion-select.png) -->
 
-*Screenshots will be added soon after the first stable release.*
+_Screenshots will be added soon after the first stable release._
 
 ## Features
 
 ### League Profile Customization
 
 #### Custom Status Messages
+
 Set personalized status messages that appear in your profile and chat.
+
 - **Custom text input** (up to 200 characters)
 - **Emoji support**
 - **Quick preset messages**
 - **Real-time character counter**
 
 #### Profile Backgrounds
+
 Transform your profile with any champion skin, even those you don't own.
+
 - **Browse all champions** with high-quality previews
 - **Search functionality** to find champions quickly
 - **All skins available** - no restrictions
 - **Instant application** to your profile
 
 #### Summoner Icons
+
 Access every summoner icon in the game, including unreleased ones.
+
 - **Icon gallery** with popular ranges
 - **Direct ID input** for precise selection
 - **Search functionality**
 - **Preview before setting**
 
 #### Chat Rank Display
+
 Show off any rank tier in your chat profile.
+
 - **All rank tiers** (Iron to Challenger)
 - **Division selection** (I-IV for applicable ranks)
 - **Queue type support** (Ranked Solo/Duo, TFT)
@@ -61,13 +69,17 @@ Show off any rank tier in your chat profile.
 - **Note**: Visual only - doesn't affect actual MMR
 
 #### Chibi Icons (TFT Companion)
+
 Customize your Teamfight Tactics companion icon.
+
 - **Any profile icon** as chibi
 - **Quick presets** available
 - **Same ID system** as summoner icons
 
 #### Practice Tool Lobby
+
 Create practice lobbies instantly for training and testing.
+
 - **One-click creation**
 - **Custom lobby names**
 - **Practice benefits**: Instant level up, unlimited gold, reset cooldowns
@@ -76,7 +88,9 @@ Create practice lobbies instantly for training and testing.
 ### Advanced Tools
 
 #### Champion Select Automation
+
 Powerful automation features for champion select phase.
+
 - **Auto-accept** matchmaking queue
 - **Instalock** champion with customizable delay
 - **Auto-ban** with timing control
@@ -91,7 +105,9 @@ Powerful automation features for champion select phase.
 - **Dodge on ban** protection
 
 #### Loot & Settings Manager
+
 Mass disenchant loot and customize game settings.
+
 - **Mass disenchant** by type:
   - Champion shards → Blue Essence
   - Skin shards → Orange Essence
@@ -102,18 +118,126 @@ Mass disenchant loot and customize game settings.
 - **One-click disenchant all**
 - **Permanent action** - cannot be undone
 
+#### Friends Manager
+
+Complete friend list management and organization tools.
+
+- **View all friends** with profile icons and online status
+- **Friend groups/folders** - organize friends by custom categories
+- **Friend requests** - accept, decline, or ignore incoming requests
+- **Delete friends** with confirmation prompts
+- **Import/Export friends** - backup and restore friend lists
+- **Search and filter** friends by name or group
+- **Real-time status updates** - see when friends go online/offline
+
+#### Client Manager
+
+Launch and manage multiple League of Legends client instances.
+
+- **Launch new client instances** with one click
+- **Multiple client support** - run several League clients simultaneously
+- **Independent sessions** - each client operates separately
+- **Perfect for:** account management, testing, or multiple accounts
+
+#### Status Manager
+
+Advanced status control with comprehensive customization options.
+
+- **Availability status** - Online, Mobile, Away, Offline
+- **Custom status messages** with emoji support
+- **Challenge customization**:
+  - Set custom challenge points display
+  - Hide/unhide challenge badges
+  - Custom challenge rank tier display
+- **Mastery level customization** - display any mastery level
+- **Real-time preview** of all changes
+- **Chat connection control** - disconnect/reconnect chat
+
 #### Champion Information
+
 Comprehensive champion data and mastery tools.
+
 - **Detailed champion information**
 - **Mastery level checking**
 - **Owned skins viewer**
 - **Role and availability data**
 
 #### Queue Management
+
 Advanced queue type monitoring and management.
+
 - **Current queue status**
 - **Available queue types**
 - **Support for all modes**: Ranked Solo/Duo, Flex, ARAM, TFT, Practice Tool
+
+### Utility Tools
+
+#### Remove All Tokens
+
+Remove all tokens from your challenges system.
+
+- **One-click removal** of all challenge tokens
+- **Reset challenge progress** to zero tokens
+- **Perfect for** starting fresh or testing scenarios
+- **Note**: Permanent action, cannot be undone
+
+#### Appear Offline
+
+Hide your online status from friends while staying connected.
+
+- **Invisible online status** - friends see you as offline
+- **Remain connected** to chat and game functionality
+- **Perfect for** private gaming sessions or avoiding interruptions
+- **Toggle on/off** instantly
+
+#### Flush DNS Cache
+
+Fix "Unknown Player" issues by clearing DNS cache.
+
+- **Resolve connection issues** with unknown players
+- **Clear DNS cache** to refresh player name resolution
+- **Quick fix** for common connectivity problems
+- **No restart required** - takes effect immediately
+
+#### Settings Protection
+
+Lock your League of Legends configuration file.
+
+- **Prevent League from overwriting** your custom settings
+- **Read-only mode** for PersistedSettings.json
+- **Preserve custom configurations** across client updates
+- **Toggle protection** on/off as needed
+
+#### Settings Backup & Restore
+
+Save and restore your League of Legends settings.
+
+- **Backup current settings** to JSON file
+- **Import settings** from backup file
+- **Complete configuration preservation** including:
+  - Keybindings
+  - Interface preferences
+  - Game settings
+  - Custom configurations
+- **Easy migration** between accounts or computers
+
+#### Invisible Profile Border
+
+Set a prestige crest with blank banner (Level 525+ required).
+
+- **Prestige crest appearance** without visible border
+- **Blank banner** for minimal profile look
+- **High-level cosmetic** option
+- **Account level requirement**: 525+
+
+#### Invisible Profile Banner
+
+Set special banner accent (Last season unranked required).
+
+- **Special banner accent** with transparent appearance
+- **Minimal visual impact** on profile
+- **Unique cosmetic option**
+- **Rank requirement**: Last season must be unranked
 
 ### Key Benefits
 
@@ -138,12 +262,14 @@ Khaos leverages the **League Client Update (LCU) API** - Riot Games' official lo
 ### Technical Architecture
 
 #### Frontend Layer
+
 - **Svelte 4** with TypeScript for reactive, component-based UI
 - **Svelte SPA Router** for seamless navigation between features
 - **DaisyUI + Tailwind CSS** for modern, responsive design
 - **Theme system** with automatic localStorage persistence
 
 #### Backend Layer
+
 - **Rust with Tauri** for high-performance desktop application
 - **Async request handling** using tokio and reqwest
 - **Direct LCU API communication** with secure authentication
@@ -152,12 +278,14 @@ Khaos leverages the **League Client Update (LCU) API** - Riot Games' official lo
 ### API Integration
 
 #### League Client API (LCU)
+
 - **Local REST API** exposed by the League client at `https://127.0.0.1:<port>`
 - **Authentication** via Basic Auth using credentials from lockfile
 - **Real-time communication** for instant profile updates
 - **Secure HTTPS** with certificate validation
 
 #### Riot Data Dragon API
+
 - **Public game data API** at `https://ddragon.leagueoflegends.com`
 - **Champion, skin, and icon information** without authentication
 - **High-quality images** and metadata for UI previews
@@ -166,12 +294,15 @@ Khaos leverages the **League Client Update (LCU) API** - Riot Games' official lo
 ### Security & Authentication
 
 #### Lockfile Authentication
+
 Khaos reads the League client's lockfile (typically at `C:\Riot Games\League of Legends\lockfile`) to obtain:
+
 - **Port number** for API connection
 - **Authentication token** for API access
 - **No credential storage** - tokens are used immediately and discarded
 
 #### Connection Security
+
 - **HTTPS-only communication** with proper certificate handling
 - **Local-only operation** - all data stays on your machine
 - **No external data transmission** - your profile information never leaves your computer
@@ -180,12 +311,14 @@ Khaos reads the League client's lockfile (typically at `C:\Riot Games\League of 
 ### Requirements & Setup
 
 #### System Requirements
+
 - **League of Legends client must be running** for API access
 - **Node.js v18+** or **Bun** for development
 - **Rust toolchain** for building
 - **Windows/macOS/Linux** support via Tauri
 
 #### Connection Process
+
 1. **Client Detection**: App scans for running League client
 2. **Lockfile Parsing**: Securely reads authentication credentials
 3. **API Connection**: Establishes HTTPS connection to local LCU API
@@ -194,16 +327,19 @@ Khaos reads the League client's lockfile (typically at `C:\Riot Games\League of 
 ### Feature Implementation
 
 #### Profile Customization
+
 - **Direct API calls** to LCU endpoints for instant changes
 - **Data validation** and error handling for reliability
 - **Preview systems** for user feedback before applying changes
 
 #### Automation Features
+
 - **Event monitoring** for champion select phase detection
 - **Timing controls** for delayed actions and spam prevention
 - **State management** for complex automation sequences
 
 #### Data Management
+
 - **Local storage** for user preferences and settings
 - **Cache management** for Data Dragon API responses
 - **Error recovery** for network and API failures
@@ -217,34 +353,45 @@ Use at your own discretion. While these features use the official LCU API for co
 ## Troubleshooting
 
 ### "Could not connect to League Client"
+
 **Solution:** Make sure the League of Legends client is running before using the app.
 
 ### "Failed to read lockfile"
+
 **Solution:** Check if League is installed at:
+
 - `C:\Riot Games\League of Legends\` (default)
 - `C:\Program Files\Riot Games\League of Legends\`
 - `C:\Program Files (x86)\Riot Games\League of Legends\`
 
 ### Changes not appearing
+
 **Solution:** Some changes may require:
+
 - Closing and reopening your profile
 - Restarting the League client
 - Waiting a few seconds for the API to process
 
 ### Icons/Skins not loading
+
 **Solution:**
+
 - Check your internet connection (needed for Data Dragon API)
 - Some icon IDs may not exist
 - Try a different ID or refresh the page
 
 ### Automation features not working
+
 **Solution:**
+
 - Ensure you're in champion select when using these features
 - Check that the League client window is active
 - Verify automation settings are enabled
 
 ### Rate limiting errors
+
 **Solution:**
+
 - Wait a few seconds between requests
 - The LCU API has rate limits to prevent spam
 - Reduce automation frequency if needed
@@ -260,11 +407,11 @@ Khaos/
 │   │   └── lcu_connection.rs   # LCU connection & authentication
 │   ├── Cargo.toml               # Rust dependencies
 │   ├── tauri.conf.json          # Tauri configuration
-│   └── build.rs                 # Build script
+│   ├── build.rs                 # Build script
+│   └── icons/                   # Application icons
 ├── src/
 │   ├── lib/
 │   │   ├── components/          # Svelte components
-│   │   │   ├── ThemeSwitcher.svelte
 │   │   │   ├── Card.svelte
 │   │   │   └── Notification.svelte
 │   │   ├── pages/               # Feature pages
@@ -274,23 +421,40 @@ Khaos/
 │   │   │   ├── CustomIcon.svelte
 │   │   │   ├── ChatRank.svelte
 │   │   │   ├── Chibi.svelte
-│   │   │   └── PracticeTool.svelte
+│   │   │   ├── PracticeTool.svelte
+│   │   │   ├── FriendsManager.svelte
+│   │   │   ├── ClientManager.svelte
+│   │   │   ├── StatusManager.svelte
+│   │   │   ├── ChampSelect.svelte
+│   │   │   ├── LootManager.svelte
+│   │   │   └── FakePlayer.svelte
 │   │   ├── services/            # API services
 │   │   │   ├── lcuService.ts    # LCU API wrapper
-│   │   │   └── riotApi.ts       # Riot Data Dragon API
+│   │   │   ├── riotApi.ts       # Riot Data Dragon API
+│   │   │   └── champSelectAutomation.ts # Champion select automation
 │   │   └── stores/              # Svelte stores
 │   │       ├── theme.ts
-│   │       └── notification.ts
+│   │       ├── notification.ts
+│   │       └── champSelect.ts
 │   ├── App.svelte               # Main app with routing
 │   ├── main.ts                  # TypeScript entry point
 │   ├── app.css                  # Global styles (Tailwind)
-│   └── vite-env.d.ts            # Vite type definitions
+│   ├── vite-env.d.ts            # Vite type definitions
+│   └── assets/                  # Static assets
+│       ├── khaosLogo.png
+│       └── summoner-icons/      # Summoner icon assets
 ├── source-codes/                # Reference implementations
-│   └── league-profile-tool-master/  # Original Angular app
+│   ├── Amumus-Friends-main/     # C# reference implementation
+│   └── KBotExt-main/           # C++ reference implementation
+├── public/
+│   └── assets/
+│       └── summoner-icons/      # Public icon assets
 ├── FEATURES.md                  # Detailed feature documentation
+├── START_HERE.md               # Development setup guide
 ├── index.html                   # HTML entry
-├── package.json                 # Node dependencies
-└── ...config files
+├── package.json                 # Node dependencies (Bun)
+├── bun.lock                     # Bun lockfile
+└── ...config files (tsconfig, tailwind, etc.)
 ```
 
 ## Installation
@@ -305,6 +469,7 @@ Khaos/
 ### Quick Install
 
 1. **Clone and install dependencies**
+
    ```bash
    git clone <your-repo-url>
    cd khaos
@@ -323,16 +488,19 @@ Khaos/
 ### Run Development Server
 
 Using Bun:
+
 ```bash
 bun run tauri:dev
 ```
 
 Or using npm:
+
 ```bash
 npm run tauri:dev
 ```
 
 This will:
+
 - Start the Vite dev server on `http://localhost:5173`
 - Launch the Tauri app with hot-reload enabled
 - Watch for changes in both frontend and backend
@@ -352,11 +520,13 @@ npm run dev
 ### Build the app
 
 Using Bun:
+
 ```bash
 bun run tauri:build
 ```
 
 Or using npm:
+
 ```bash
 npm run tauri:build
 ```
@@ -372,11 +542,13 @@ The built application will be available in `src-tauri/target/release/bundle/`
 ## Themes
 
 ### Default Theme (Dark Mode): softextreme
+
 - Base colors optimized for dark environments
 - High contrast for readability
 - Modern, sleek appearance
 
 ### Light Theme: lemonade
+
 - Bright, fresh color palette
 - Easy on the eyes in well-lit environments
 - Professional look
@@ -390,6 +562,7 @@ Click the theme switcher button in the top-right corner of the app to toggle bet
 ### Adding Tauri Commands
 
 1. **Define the command in Rust** (`src-tauri/src/commands.rs`):
+
    ```rust
    #[tauri::command]
    pub fn my_command(input: String) -> Result<String, String> {
@@ -398,6 +571,7 @@ Click the theme switcher button in the top-right corner of the app to toggle bet
    ```
 
 2. **Register the command** in `src-tauri/src/main.rs`:
+
    ```rust
    .invoke_handler(tauri::generate_handler![
        greet,
@@ -406,11 +580,12 @@ Click the theme switcher button in the top-right corner of the app to toggle bet
    ```
 
 3. **Call from frontend** (`src/lib/utils/tauri.ts`):
+
    ```typescript
-   import { invoke } from '@tauri-apps/api/tauri';
-   
+   import { invoke } from "@tauri-apps/api/tauri";
+
    export async function myCommand(input: string): Promise<string> {
-     return await invoke('my_command', { input });
+     return await invoke("my_command", { input });
    }
    ```
 
@@ -441,18 +616,21 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 ### Quick Start for Contributors
 
 1. **Fork and clone the repository**
+
    ```bash
    git clone https://github.com/yourusername/khaos.git
    cd khaos
    ```
 
 2. **Set up development environment**
+
    ```bash
    bun install
    bun run tauri:dev
    ```
 
 3. **Create a feature branch**
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -481,6 +659,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 ### Reporting Issues
 
 When reporting bugs, please include:
+
 - Your operating system and version
 - League of Legends client version
 - Steps to reproduce the issue
@@ -512,7 +691,7 @@ This project is open source and available under the [MIT License](LICENSE).
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/khaos/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/khaos/discussions)
-- **Discord**: *Coming soon*
+- **Discord**: _Coming soon_
 
 ## Links
 
@@ -526,7 +705,6 @@ This project is open source and available under the [MIT License](LICENSE).
 
 **Built with using Tauri + Svelte + TypeScript**
 
-*Show your support by starring the repository!*
+_Show your support by starring the repository!_
 
 </div>
-

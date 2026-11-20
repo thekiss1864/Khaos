@@ -1388,6 +1388,49 @@ class LcuService {
       };
     }
   }
+
+  /**
+   * Save current settings to a backup file with timestamp
+   */
+  async saveSettingsBackup(): Promise<LcuResponse> {
+    try {
+      return await invoke<LcuResponse>("save_settings_backup");
+    } catch (error) {
+      return {
+        success: false,
+        message: String(error),
+      };
+    }
+  }
+
+  /**
+   * Import settings from a backup file (replaces current PersistedSettings.json)
+   * @param backupPath Path to the backup file to import
+   */
+  async importSettings(backupPath: string): Promise<LcuResponse> {
+    try {
+      return await invoke<LcuResponse>("import_settings", { backupPath });
+    } catch (error) {
+      return {
+        success: false,
+        message: String(error),
+      };
+    }
+  }
+
+  /**
+   * Export current settings to a backup file (same as save backup)
+   */
+  async exportSettings(): Promise<LcuResponse> {
+    try {
+      return await invoke<LcuResponse>("export_settings");
+    } catch (error) {
+      return {
+        success: false,
+        message: String(error),
+      };
+    }
+  }
 }
 
 export const lcuService = new LcuService();

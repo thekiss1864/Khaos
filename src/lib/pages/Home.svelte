@@ -4,6 +4,7 @@
   import { notifications } from "$lib/stores/notification";
   import Card from "$lib/components/Card.svelte";
   import khaosLogo from "/src/assets/khaosLogo.png";
+  import { open } from "@tauri-apps/api/dialog";
 
   let isConnected = false;
   let connectionStatus = "Checking...";
@@ -11,6 +12,8 @@
   let summonerInfo: any = null;
   let settingsReadonly = false;
   let settingsStatus = "Checking...";
+  let isSettingInvisibleBorder = false;
+  let isSettingInvisibleBanner = false;
 
   function handleIconError(event: Event) {
     const img = event.currentTarget as HTMLImageElement;
@@ -74,6 +77,103 @@
     }
   }
 
+  async function saveCurrentSettings() {
+    try {
+      const response = await lcuService.saveSettingsBackup();
+      if (response.success) {
+        notifications.success("Settings saved successfully!");
+      } else {
+        notifications.error(`Failed to save settings: ${response.message}`);
+      }
+    } catch (error) {
+      notifications.error(`Error saving settings: ${error}`);
+    }
+  }
+
+  async function importSettings() {
+    try {
+      // Open file dialog to select backup file
+      const selectedPath = await open({
+        multiple: false,
+        filters: [
+          {
+            name: "JSON Files",
+            extensions: ["json"],
+          },
+        ],
+        title: "Select Settings Backup File",
+      });
+
+      if (!selectedPath || Array.isArray(selectedPath)) {
+        return; // User cancelled or selected multiple files
+      }
+
+      const response = await lcuService.importSettings(selectedPath);
+      if (response.success) {
+        notifications.success(
+          "Settings imported successfully! Restart League of Legends to apply changes."
+        );
+      } else {
+        notifications.error(`Failed to import settings: ${response.message}`);
+      }
+    } catch (error) {
+      notifications.error(`Error importing settings: ${error}`);
+    }
+  }
+
+  async function exportSettings() {
+    try {
+      const response = await lcuService.exportSettings();
+      if (response.success) {
+        notifications.success("Settings exported successfully!");
+      } else {
+        notifications.error(`Failed to export settings: ${response.message}`);
+      }
+    } catch (error) {
+      notifications.error(`Error exporting settings: ${error}`);
+    }
+  }
+
+  async function setInvisibleProfileBorder() {
+    if (isSettingInvisibleBorder) return;
+
+    isSettingInvisibleBorder = true;
+    try {
+      const response = await lcuService.setInvisibleProfileBorder();
+      if (response.success) {
+        notifications.success("Invisible profile border set successfully!");
+      } else {
+        notifications.error(
+          `Failed to set invisible border: ${response.message}`
+        );
+      }
+    } catch (error) {
+      notifications.error(`Error setting invisible border: ${error}`);
+    } finally {
+      isSettingInvisibleBorder = false;
+    }
+  }
+
+  async function setInvisibleProfileBanner() {
+    if (isSettingInvisibleBanner) return;
+
+    isSettingInvisibleBanner = true;
+    try {
+      const response = await lcuService.setInvisibleProfileBanner();
+      if (response.success) {
+        notifications.success("Invisible profile banner set successfully!");
+      } else {
+        notifications.error(
+          `Failed to set invisible banner: ${response.message}`
+        );
+      }
+    } catch (error) {
+      notifications.error(`Error setting invisible banner: ${error}`);
+    } finally {
+      isSettingInvisibleBanner = false;
+    }
+  }
+
   onMount(() => {
     checkConnection();
     checkSettingsStatus();
@@ -84,7 +184,7 @@
   <div class="text-center mb-8">
     <h1 class="text-5xl font-bold mb-4 flex items-center justify-center gap-4">
       <img src={khaosLogo} alt="KHAOS Logo" class="h-16 w-auto" />
-      <span>League Profile Tool</span>
+      <span>Khaos</span>
     </h1>
     <p class="text-lg text-base-content/70">
       Customize your League of Legends profile with ease
@@ -408,6 +508,91 @@
           </div>
         </div>
       </div>
+
+      <div
+        class="card bg-base-200 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
+      >
+        <div class="card-body">
+          <h3 class="card-title text-green-500">Save Settings File</h3>
+          <div class="space-y-3">
+            <p class="text-xs text-base-content/70 leading-snug">
+              Backup and restore your League of Legends settings with ease.
+            </p>
+            <div class="flex flex-col gap-2">
+              <button
+                class="btn btn-primary btn-sm w-full"
+                on:click={saveCurrentSettings}
+              >
+                Save Current Settings
+              </button>
+              <button
+                class="btn btn-secondary btn-sm w-full"
+                on:click={importSettings}
+              >
+                Import Settings
+              </button>
+              <button
+                class="btn btn-accent btn-sm w-full"
+                on:click={exportSettings}
+              >
+                Export Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button
+        class="card bg-base-200 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 cursor-pointer"
+        on:click={async () => {
+          if (!isConnected) {
+            notifications.error("Please connect to League Client first");
+            return;
+          }
+          await setInvisibleProfileBorder();
+        }}
+        disabled={isSettingInvisibleBorder}
+      >
+        <div class="card-body">
+          <h3 class="card-title text-purple-500">Invisible Profile Border</h3>
+          <p class="text-sm">
+            Requires account level 525 or higher. Sets a prestige crest with a
+            blank banner.
+          </p>
+          {#if isSettingInvisibleBorder}
+            <div class="flex items-center gap-2 mt-2">
+              <span class="loading loading-spinner loading-sm"></span>
+              Setting...
+            </div>
+          {/if}
+        </div>
+      </button>
+
+      <button
+        class="card bg-base-200 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 cursor-pointer"
+        on:click={async () => {
+          if (!isConnected) {
+            notifications.error("Please connect to League Client first");
+            return;
+          }
+          await setInvisibleProfileBanner();
+        }}
+        disabled={isSettingInvisibleBanner}
+      >
+        <div class="card-body">
+          <h3 class="card-title text-purple-500">Invisible Profile Banner</h3>
+          <p class="text-sm">
+            Requires last season rank to be unranked. Sets a special banner
+            accent.
+          </p>
+          {#if isSettingInvisibleBanner}
+            <div class="flex items-center gap-2 mt-2">
+              <span class="loading loading-spinner loading-sm"></span>
+              Setting...
+            </div>
+          {/if}
+        </div>
+      </button>
     </div>
   </div>
 </div>

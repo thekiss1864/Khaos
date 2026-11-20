@@ -34,7 +34,7 @@
 
     if (!isConnected) {
       notifications.error(
-        "Could not connect to League Client. Make sure it's running.",
+        "Could not connect to League Client. Make sure it's running."
       );
     }
 
@@ -69,7 +69,7 @@
       const requestsResponse = await lcuService.getFriendRequests();
       if (requestsResponse.success && requestsResponse.data) {
         friendRequests = requestsResponse.data.filter(
-          (request: any) => request.direction === "in",
+          (request: any) => request.direction === "in"
         );
       }
     } catch (error) {
@@ -82,7 +82,7 @@
   async function handleDeleteFriend(friend: any) {
     if (
       confirm(
-        `Are you sure you want to delete ${friend.name || friend.gameName}?`,
+        `Are you sure you want to delete ${friend.name || friend.gameName}?`
       )
     ) {
       isLoading = true;
@@ -90,7 +90,7 @@
         const response = await lcuService.deleteFriend(friend.puuid);
         if (response.success) {
           notifications.success(
-            `Successfully deleted ${friend.name || friend.gameName}`,
+            `Successfully deleted ${friend.name || friend.gameName}`
           );
           await loadData();
         } else {
@@ -107,7 +107,7 @@
   async function handleDeleteAllFriends() {
     if (
       confirm(
-        `Are you sure you want to delete ALL ${friends.length} friends? This cannot be undone!`,
+        `Are you sure you want to delete ALL ${friends.length} friends? This cannot be undone!`
       )
     ) {
       isLoading = true;
@@ -131,7 +131,7 @@
     const groupFriends = friendGroups.get(groupName) || [];
     if (
       confirm(
-        `Are you sure you want to delete all ${groupFriends.length} friends in "${groupName}" folder?`,
+        `Are you sure you want to delete all ${groupFriends.length} friends in "${groupName}" folder?`
       )
     ) {
       isLoading = true;
@@ -151,7 +151,7 @@
         }
 
         notifications.success(
-          `Successfully deleted ${successCount} friends from "${groupName}". Failed: ${failCount}`,
+          `Successfully deleted ${successCount} friends from "${groupName}". Failed: ${failCount}`
         );
         await loadData();
       } catch (error) {
@@ -246,7 +246,7 @@
         linkElement.click();
 
         notifications.success(
-          `Successfully exported ${exportedFriends.length} friends`,
+          `Successfully exported ${exportedFriends.length} friends`
         );
       } else {
         notifications.error(`Failed to export friends: ${response.message}`);
@@ -295,7 +295,7 @@
       importFile = null;
       // Reset file input
       const fileInput = document.getElementById(
-        "import-file",
+        "import-file"
       ) as HTMLInputElement;
       if (fileInput) {
         fileInput.value = "";
@@ -545,16 +545,16 @@
                     on:click={async () => {
                       const response = await lcuService.customRequest(
                         "PUT",
-                        `/lol-chat/v1/friend-requests/${request.id}/accept`,
+                        `/lol-chat/v1/friend-requests/${request.id}/accept`
                       );
                       if (response.success) {
                         notifications.success(
-                          `Accepted request from ${request.name}`,
+                          `Accepted request from ${request.name}`
                         );
                         await loadData();
                       } else {
                         notifications.error(
-                          `Failed to accept request: ${response.message}`,
+                          `Failed to accept request: ${response.message}`
                         );
                       }
                     }}
@@ -566,16 +566,16 @@
                     on:click={async () => {
                       const response = await lcuService.customRequest(
                         "DELETE",
-                        `/lol-chat/v1/friend-requests/${request.id}`,
+                        `/lol-chat/v1/friend-requests/${request.id}`
                       );
                       if (response.success) {
                         notifications.success(
-                          `Rejected request from ${request.name}`,
+                          `Rejected request from ${request.name}`
                         );
                         await loadData();
                       } else {
                         notifications.error(
-                          `Failed to reject request: ${response.message}`,
+                          `Failed to reject request: ${response.message}`
                         );
                       }
                     }}
@@ -620,5 +620,4 @@
       </div>
     </div>
   {/if}
-
 </div>

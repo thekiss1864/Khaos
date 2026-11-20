@@ -75,6 +75,80 @@ impl LcuCredentials {
             general_purpose::STANDARD.encode(credentials.as_bytes())
         )
     }
+
+    /// Discover LCU credentials.
+    ///
+    /// Since the 2025 client, Riot no longer writes the `lockfile` to the
+    /// install directory; credentials are only exposed as command-line
+    /// arguments of `LeagueClientUx.exe`. Try those first, then fall back to
+    /// the legacy lockfile for older clients.
+    pub fn discover() -> Result<Self, String> {
+        match Self::from_ux_process() {
+            Ok(creds) => Ok(creds),
+            Err(ux_err) => match Self::from_lockfile() {
+                Ok(creds) => Ok(creds),
+                Err(lockfile_err) => Err(format!(
+                    "Could not find the League client ({}; legacy lockfile lookup: {})",
+                    ux_err, lockfile_err
+                )),
+            },
+        }
+    }
+
+    /// Read LCU credentials from the command line of the running
+    /// `LeagueClientUx.exe` process (works even when the client runs elevated,
+    /// because WMI serves the data, not the calling process).
+    fn from_ux_process() -> Result<Self, String> {
+        #[derive(Deserialize)]
+        struct UxProcess {
+            #[serde(rename = "CommandLine")]
+            command_line: Option<String>,
+        }
+
+        let conn = wmi::WMIConnection::new()
+            .map_err(|e| format!("WMI connection failed: {}", e))?;
+        let procs: Vec<UxProcess> = conn
+            .raw_query(
+                "SELECT CommandLine FROM Win32_Process WHERE Name = 'LeagueClientUx.exe'",
+            )
+            .map_err(|e| format!("WMI query failed: {}", e))?;
+
+        for proc in procs {
+            if let Some(cmd) = proc.command_line {
+                if let (Some(port), Some(token)) = (
+                    extract_arg_value(&cmd, "app-port"),
+                    extract_arg_value(&cmd, "remoting-auth-token"),
+                ) {
+                    if let Ok(port) = port.parse::<u16>() {
+                        if !token.is_empty() {
+                            return Ok(LcuCredentials {
+                                port,
+                                token,
+                                protocol: "https".to_string(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        Err(
+            "LeagueClientUx.exe with --app-port/--remoting-auth-token not found. Make sure the League client is running"
+                .to_string(),
+        )
+    }
+}
+
+/// Extract the value of `--<arg_name>=<value>` from a Windows command line.
+/// Values end at the next quote or whitespace (args arrive quoted by WMI).
+fn extract_arg_value(cmd: &str, arg_name: &str) -> Option<String> {
+    let needle = format!("--{}=", arg_name);
+    let pos = cmd.find(&needle)?;
+    let value = &cmd[pos + needle.len()..];
+    let end = value
+        .find(['"', ' ', '\t'])
+        .unwrap_or(value.len());
+    Some(value[..end].to_string())
 }
 
 /// Dynamically find the League of Legends client executable path

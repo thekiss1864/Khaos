@@ -48,6 +48,10 @@ fn main() {
             flush_dns,
             check_settings_readonly,
             toggle_settings_readonly,
+            save_settings_backup,
+            import_settings,
+            export_settings,
+            check_repository_privacy,
         ])
         .system_tray(SystemTray::new().with_menu(tray_menu))
         .on_system_tray_event(|app, event| match event {

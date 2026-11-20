@@ -34,6 +34,7 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # Lazy static for global state
 lazy_static = "1.4"
+wmi = "0.18.4"
 
 [features]
 # This feature is used for production builds or when `devPath` points to the filesystem

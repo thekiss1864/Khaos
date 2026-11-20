@@ -2,6 +2,7 @@ use crate::lcu_connection::{
     find_league_client_path, get_endpoint, get_persisted_settings_path, make_lcu_request,
     LcuCredentials, LcuResponse,
 };
+use reqwest::StatusCode;
 use serde_json::json;
 
 /// Example Tauri command that greets a user
@@ -13,7 +14,7 @@ pub fn greet(name: &str) -> String {
 /// Check if LCU is connected
 #[tauri::command]
 pub async fn check_lcu_connection() -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     make_lcu_request(
         &credentials,
         "GET",
@@ -26,7 +27,7 @@ pub async fn check_lcu_connection() -> Result<LcuResponse, String> {
 /// Set custom status message
 #[tauri::command]
 pub async fn set_status_message(message: String) -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     let endpoint = get_endpoint("lolChat")?;
     let body = json!({
         "statusMessage": message
@@ -37,7 +38,7 @@ pub async fn set_status_message(message: String) -> Result<LcuResponse, String> 
 /// Set profile background by skin ID
 #[tauri::command]
 pub async fn set_profile_background(skin_id: i64) -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     let endpoint = get_endpoint("profile")?;
     let body = json!({
         "key": "backgroundSkinId",
@@ -49,7 +50,7 @@ pub async fn set_profile_background(skin_id: i64) -> Result<LcuResponse, String>
 /// Set summoner icon
 #[tauri::command]
 pub async fn set_summoner_icon(icon_id: i64) -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     let endpoint = get_endpoint("lolChat")?;
     let body = json!({
         "icon": icon_id
@@ -64,7 +65,7 @@ pub async fn set_chat_rank(
     tier: String,
     division: String,
 ) -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     let endpoint = get_endpoint("lolChat")?;
     let body = json!({
         "lol": {
@@ -79,7 +80,7 @@ pub async fn set_chat_rank(
 /// Set chibi icon (TFT companion)
 #[tauri::command]
 pub async fn set_chibi_icon(profile_icon_id: i64) -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     let endpoint = get_endpoint("chibiIcon")?;
     let body = json!({
         "profileIconId": profile_icon_id
@@ -90,7 +91,7 @@ pub async fn set_chibi_icon(profile_icon_id: i64) -> Result<LcuResponse, String>
 /// Create practice tool lobby
 #[tauri::command]
 pub async fn create_practice_lobby(lobby_name: String) -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     let endpoint = get_endpoint("lobby")?;
 
     let name = if lobby_name.is_empty() {
@@ -127,14 +128,14 @@ pub async fn custom_lcu_request(
     endpoint: String,
     body: Option<serde_json::Value>,
 ) -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     make_lcu_request(&credentials, &method, &endpoint, body).await
 }
 
 /// Set availability status
 #[tauri::command]
 pub async fn set_availability_status(status: String) -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     let endpoint = "/lol-chat/v1/me".to_string();
     let body = json!({
         "availability": status
@@ -157,7 +158,7 @@ pub async fn appear_online() -> Result<LcuResponse, String> {
 /// Disconnect from chat
 #[tauri::command]
 pub async fn disconnect_chat() -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     let endpoint = "/chat/v1/suspend".to_string();
     let body = json!({
         "config": "disable"
@@ -168,7 +169,7 @@ pub async fn disconnect_chat() -> Result<LcuResponse, String> {
 /// Reconnect to chat
 #[tauri::command]
 pub async fn reconnect_chat() -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     let endpoint = "/chat/v1/resume".to_string();
     make_lcu_request(&credentials, "POST", &endpoint, None).await
 }
@@ -176,7 +177,7 @@ pub async fn reconnect_chat() -> Result<LcuResponse, String> {
 /// Auto-accept matchmaking
 #[tauri::command]
 pub async fn auto_accept(accept: bool) -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     let endpoint = "/lol-matchmaking/v1/ready-check/accept".to_string();
     let body = json!({
         "acceptMatch": accept
@@ -191,7 +192,7 @@ pub async fn instalock(champion_id: i64) -> Result<LcuResponse, String> {
         "Instalock: Starting instalock for champion ID {}",
         champion_id
     );
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
 
     // Get the current champ select session
     let session_response =
@@ -313,7 +314,7 @@ pub async fn instalock(champion_id: i64) -> Result<LcuResponse, String> {
 /// Auto ban champion in champ select
 #[tauri::command]
 pub async fn auto_ban_champion(champion_id: i64) -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
 
     // Get the current champ select session
     let session_response =
@@ -373,7 +374,7 @@ pub async fn send_instant_message(
     times: Option<i64>,
     delay: Option<i64>,
 ) -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     let times = times.unwrap_or(1);
     let delay = delay.unwrap_or(0);
 
@@ -432,7 +433,7 @@ pub async fn send_instant_message(
 /// Instantly mute all players in champ select
 #[tauri::command]
 pub async fn instant_mute_all() -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
 
     // Get the current champ select session
     let session_response =
@@ -480,7 +481,7 @@ pub async fn instant_mute_all() -> Result<LcuResponse, String> {
 /// Multi-search players in champ select
 #[tauri::command]
 pub async fn multi_search(website: String) -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
 
     // Get the current champ select session
     let session_response =
@@ -598,7 +599,7 @@ pub async fn multi_search(website: String) -> Result<LcuResponse, String> {
 /// Auto import runes from OP.GG
 #[tauri::command]
 pub async fn auto_import_runes() -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
 
     // Get current champion
     let current_champ_response = make_lcu_request(
@@ -643,7 +644,7 @@ pub async fn auto_import_runes() -> Result<LcuResponse, String> {
 /// Set backup pick champion
 #[tauri::command]
 pub async fn set_backup_pick(champion_id: i64) -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     let endpoint = "/lol-champ-select/v1/session/my-backup-selection".to_string();
     let body = json!({
         "championId": champion_id,
@@ -731,7 +732,7 @@ pub fn launch_new_client() -> Result<LcuResponse, String> {
 /// Get all champions
 #[tauri::command]
 pub async fn get_all_champions() -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     make_lcu_request(
         &credentials,
         "GET",
@@ -744,7 +745,7 @@ pub async fn get_all_champions() -> Result<LcuResponse, String> {
 /// Get champion mastery for a specific champion
 #[tauri::command]
 pub async fn get_champion_mastery(champion_id: i64) -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     make_lcu_request(
         &credentials,
         "GET",
@@ -757,7 +758,7 @@ pub async fn get_champion_mastery(champion_id: i64) -> Result<LcuResponse, Strin
 /// Get all champion masteries
 #[tauri::command]
 pub async fn get_all_champion_masteries() -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     make_lcu_request(
         &credentials,
         "GET",
@@ -770,7 +771,7 @@ pub async fn get_all_champion_masteries() -> Result<LcuResponse, String> {
 /// Get owned skins
 #[tauri::command]
 pub async fn get_owned_skins() -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     make_lcu_request(
         &credentials,
         "GET",
@@ -783,7 +784,7 @@ pub async fn get_owned_skins() -> Result<LcuResponse, String> {
 /// Get current game queue type
 #[tauri::command]
 pub async fn get_current_queue_type() -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
     make_lcu_request(
         &credentials,
         "GET",
@@ -796,7 +797,7 @@ pub async fn get_current_queue_type() -> Result<LcuResponse, String> {
 /// Check if a specific queue is available
 #[tauri::command]
 pub async fn is_queue_available(queue_id: i64) -> Result<LcuResponse, String> {
-    let credentials = LcuCredentials::from_lockfile()?;
+    let credentials = LcuCredentials::discover()?;
 
     // First, get all available queues
     let queues_response =
@@ -1024,5 +1025,245 @@ pub fn toggle_settings_readonly(set_readonly: bool) -> Result<LcuResponse, Strin
             message: "Read-only settings management is only supported on Windows".to_string(),
             data: None,
         })
+    }
+}
+
+/// Save current settings to a backup file with timestamp
+#[tauri::command]
+pub fn save_settings_backup() -> Result<LcuResponse, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::fs;
+        use std::path::Path;
+
+        let settings_path = match get_persisted_settings_path() {
+            Some(path) => path,
+            None => {
+                return Ok(LcuResponse {
+                    success: false,
+                    message:
+                        "Could not find League of Legends installation. Make sure League of Legends is installed."
+                            .to_string(),
+                    data: None,
+                });
+            }
+        };
+
+        if !Path::new(&settings_path).exists() {
+            return Ok(LcuResponse {
+                success: false,
+                message:
+                    "PersistedSettings.json not found. Make sure League of Legends is installed."
+                        .to_string(),
+                data: None,
+            });
+        }
+
+        // Read current settings
+        let content = fs::read_to_string(&settings_path)
+            .map_err(|e| format!("Failed to read settings file: {}", e))?;
+
+        // Create backup directory if it doesn't exist
+        let settings_dir = Path::new(&settings_path).parent().unwrap();
+        let backup_dir = settings_dir.join("SettingsBackups");
+
+        if !backup_dir.exists() {
+            fs::create_dir_all(&backup_dir)
+                .map_err(|e| format!("Failed to create backup directory: {}", e))?;
+        }
+
+        // Generate timestamp for filename
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| format!("Failed to get timestamp: {}", e))?
+            .as_secs();
+
+        let backup_filename = format!("PersistedSettings_Backup_{}.json", timestamp);
+        let backup_path = backup_dir.join(backup_filename);
+
+        // Write backup
+        fs::write(&backup_path, &content).map_err(|e| format!("Failed to create backup: {}", e))?;
+
+        Ok(LcuResponse {
+            success: true,
+            message: format!("Settings backed up to: {}", backup_path.display()),
+            data: Some(serde_json::json!({
+                "backup_path": backup_path.to_string_lossy(),
+                "timestamp": timestamp
+            })),
+        })
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(LcuResponse {
+            success: false,
+            message: "Settings backup is only supported on Windows".to_string(),
+            data: None,
+        })
+    }
+}
+
+/// Import settings from a backup file (replaces current PersistedSettings.json)
+#[tauri::command]
+pub fn import_settings(backup_path: String) -> Result<LcuResponse, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::fs;
+        use std::path::Path;
+
+        let settings_path = match get_persisted_settings_path() {
+            Some(path) => path,
+            None => {
+                return Ok(LcuResponse {
+                    success: false,
+                    message:
+                        "Could not find League of Legends installation. Make sure League of Legends is installed."
+                            .to_string(),
+                    data: None,
+                });
+            }
+        };
+
+        let backup_path_obj = Path::new(&backup_path);
+        if !backup_path_obj.exists() {
+            return Ok(LcuResponse {
+                success: false,
+                message: format!("Backup file not found: {}", backup_path),
+                data: None,
+            });
+        }
+
+        // Read backup content
+        let backup_content = fs::read_to_string(backup_path_obj)
+            .map_err(|e| format!("Failed to read backup file: {}", e))?;
+
+        // Validate it's valid JSON
+        serde_json::from_str::<serde_json::Value>(&backup_content)
+            .map_err(|e| format!("Invalid JSON in backup file: {}", e))?;
+
+        // Make settings file writable if it's read-only
+        if let Ok(metadata) = fs::metadata(&settings_path) {
+            if metadata.permissions().readonly() {
+                let mut perms = metadata.permissions();
+                perms.set_readonly(false);
+                fs::set_permissions(&settings_path, perms)
+                    .map_err(|e| format!("Failed to make settings writable: {}", e))?;
+            }
+        }
+
+        // Replace current settings with backup
+        fs::write(&settings_path, backup_content)
+            .map_err(|e| format!("Failed to import settings: {}", e))?;
+
+        Ok(LcuResponse {
+            success: true,
+            message: "Settings imported successfully. Restart League of Legends to apply changes."
+                .to_string(),
+            data: Some(serde_json::json!({
+                "imported_from": backup_path,
+                "settings_path": settings_path
+            })),
+        })
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(LcuResponse {
+            success: false,
+            message: "Settings import is only supported on Windows".to_string(),
+            data: None,
+        })
+    }
+}
+
+/// Export current settings (same as backup but returns the path for user reference)
+#[tauri::command]
+pub fn export_settings() -> Result<LcuResponse, String> {
+    save_settings_backup()
+}
+
+/// Check if GitHub repository is private using GitHub API
+#[tauri::command]
+pub async fn check_repository_privacy(owner: String, repo: String) -> Result<LcuResponse, String> {
+    let client = reqwest::Client::new();
+    let url = format!("https://api.github.com/repos/{}/{}", owner, repo);
+
+    match client
+        .get(&url)
+        .header("User-Agent", "Khaos-App/1.0")
+        .header("Accept", "application/vnd.github.v3+json")
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await
+    {
+        Ok(response) => {
+            let status = response.status();
+            if status == StatusCode::NOT_FOUND {
+                // Repository doesn't exist - assume public and continue
+                println!(
+                    "Repository {}/{} not found (404), assuming public",
+                    owner, repo
+                );
+                return Ok(LcuResponse {
+                    success: true,
+                    message: "Repository not found, assuming public".to_string(),
+                    data: Some(serde_json::json!({
+                        "private": false,
+                        "error": "Repository not found",
+                        "error_type": "repo_not_found"
+                    })),
+                });
+            }
+
+            match response.json::<serde_json::Value>().await {
+                Ok(json) => {
+                    // GitHub API returns private field
+                    let is_private = json["private"].as_bool().unwrap_or(false); // Default to false (public) if field not found
+
+                    Ok(LcuResponse {
+                        success: true,
+                        message: if is_private {
+                            "Repository is private".to_string()
+                        } else {
+                            "Repository is public".to_string()
+                        },
+                        data: Some(serde_json::json!({
+                            "private": is_private,
+                            "name": json["name"].as_str().unwrap_or(""),
+                            "full_name": json["full_name"].as_str().unwrap_or("")
+                        })),
+                    })
+                }
+                Err(e) => {
+                    // If JSON parsing fails, assume public (fail-safe approach)
+                    println!("Failed to parse GitHub API response: {}", e);
+                    Ok(LcuResponse {
+                        success: true,
+                        message: "Unable to determine repository privacy, assuming public"
+                            .to_string(),
+                        data: Some(serde_json::json!({
+                            "private": false,
+                            "error": format!("JSON parse error: {}", e),
+                            "error_type": "parse_error"
+                        })),
+                    })
+                }
+            }
+        }
+        Err(e) => {
+            // If request fails, assume public (fail-safe approach)
+            println!("GitHub API request failed: {}", e);
+            Ok(LcuResponse {
+                success: true,
+                message: "Unable to check repository privacy, assuming public".to_string(),
+                data: Some(serde_json::json!({
+                    "private": false,
+                    "error": format!("Request error: {}", e),
+                    "error_type": "network_error"
+                })),
+            })
+        }
     }
 }

@@ -339,7 +339,7 @@
       Champion Select Automation
     </h1>
     <p class="text-lg text-base-content/70">
-      Advanced champion select tools inspired by KBot
+      Advanced champion select tools by bynwkyow
     </p>
   </div>
 
@@ -543,11 +543,11 @@
         {/if}
 
         <div
-          class="grid grid-cols-6 gap-2 max-h-64 overflow-y-auto border border-base-300 rounded-lg p-2"
+          class="grid grid-cols-5 gap-2 max-h-64 overflow-y-auto border border-base-300 rounded-lg p-2"
         >
           {#each filteredChampions as champion}
             <button
-              class="btn btn-ghost btn-sm p-1 aspect-square {selectedChampion ===
+              class="btn btn-ghost p-2 aspect-square {selectedChampion ===
               champion.id
                 ? 'ring-2 ring-success'
                 : ''}"
@@ -608,11 +608,11 @@
           {/if}
 
           <div
-            class="grid grid-cols-6 gap-2 max-h-64 overflow-y-auto border border-base-300 rounded-lg p-2"
+            class="grid grid-cols-5 gap-2 max-h-64 overflow-y-auto border border-base-300 rounded-lg p-2"
           >
             {#each filteredBanChampions as champion}
               <button
-                class="btn btn-ghost btn-sm p-1 aspect-square"
+                class="btn btn-ghost p-2 aspect-square"
                 class:ring-2={selectedBanChampion === champion.id}
                 class:ring-error={selectedBanChampion === champion.id}
                 on:click={() => selectBanChampion(champion.id)}
@@ -679,11 +679,11 @@
           {/if}
 
           <div
-            class="grid grid-cols-6 gap-2 max-h-64 overflow-y-auto border border-base-300 rounded-lg p-2"
+            class="grid grid-cols-5 gap-2 max-h-64 overflow-y-auto border border-base-300 rounded-lg p-2"
           >
             {#each filteredBackupChampions as champion}
               <button
-                class="btn btn-ghost btn-sm p-1 aspect-square {selectedBackupChampion ===
+                class="btn btn-ghost p-2 aspect-square {selectedBackupChampion ===
                 champion.id
                   ? 'ring-2 ring-warning'
                   : ''}"

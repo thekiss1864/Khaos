@@ -1,34 +1,21 @@
-import { writable } from 'svelte/store';
+import { writable } from "svelte/store";
 
-type Theme = 'softextreme' | 'lemonade';
+type Theme = "forest";
 
 function createThemeStore() {
-  const { subscribe, set, update } = writable<Theme>('softextreme');
+  const { subscribe, set } = writable<Theme>("forest");
 
   return {
     subscribe,
     set: (theme: Theme) => {
-      document.documentElement.setAttribute('data-theme', theme);
-      localStorage.setItem('theme', theme);
+      document.documentElement.setAttribute("data-theme", theme);
       set(theme);
     },
-    toggle: () => {
-      update(current => {
-        const newTheme = current === 'softextreme' ? 'lemonade' : 'softextreme';
-        document.documentElement.setAttribute('data-theme', newTheme);
-        localStorage.setItem('theme', newTheme);
-        return newTheme;
-      });
-    },
     init: () => {
-      const savedTheme = localStorage.getItem('theme') as Theme | null;
-      if (savedTheme && (savedTheme === 'softextreme' || savedTheme === 'lemonade')) {
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        set(savedTheme);
-      }
-    }
+      document.documentElement.setAttribute("data-theme", "forest");
+      set("forest");
+    },
   };
 }
 
 export const theme = createThemeStore();
-
